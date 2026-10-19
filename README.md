@@ -49,6 +49,9 @@ Details, with the Symbian source references, are in [`notes/02-mechanism.md`](no
 
 1. **Android:** install BlueDUN++ (`com.bluedunz`, the version for Android 12+), start it,
    and pair the phone with the 9300 (Control panel → Bluetooth on the 9300).
+   **Important:** Android stops BlueDUN++ one minute after the screen turns off. Fix it
+   once from a PC with USB debugging: `adb shell dumpsys deviceidle whitelist +com.bluedunz`
+   (repeat after reinstalling BlueDUN++). `host/adb-bluedun-test.bat` checks this.
    **PC instead (not tested end to end yet):** run `sudo host/gnubox-host.py` (needs
    `bluez ppp python3-dbus python3-gi` and `nft` or `iptables`), then pair the PC with
    the 9300 using a PIN.

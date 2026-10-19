@@ -107,12 +107,6 @@ Notes:
 - Next: rank 1 with DialogPref 3 (DoNotPrompt), re-applied by Connect / the toggle; 2.3
   prints it in words. Then retest the browser.
 
-### 2026-10-19 #8: GnuBox 2.3 – browser works [device] ✅
-- Connect re-applied rank 1 = GnuBox BT with DialogPref 3 (DoNotPrompt).
-- The 9300 browser no longer asks for an access point and loads pages over GnuBox BT,
-  both **HTTP and HTTPS** (HTTPS works through the user's patched ssladaptor.dll).
-- Working end to end: Nokia 9300 → Bluetooth DUN → Android (BlueDUN++) → Internet.
-
 ### 2026-10-19 #9: speed reference [device: user]
 - USB cable, IP passthrough (RNDIS): max download **107 kB/s (~856 kbit/s)** on this
   9300. So the phone's own CPU and TCP stack manage at least that much; at that rate
@@ -143,3 +137,38 @@ Notes:
 - Replaces Settings > "Use GnuBox BT for all apps". Connect still re-applies GnuBox BT
   as default when that is the chosen default (Control panel edits can reset it to
   prompt).
+
+## #12 BlueDUN++ stops ~70 s after the Android screen turns off
+- Report: with the screen off, BlueDUN++ stops sharing after about 1 min 10 s. With the
+  screen on it keeps going (BlueDUN shows "discoverable for 120 s", which is unrelated).
+- Diagnosis (not confirmed yet): Android power management stops the app or its
+  Bluetooth socket. ~1 min after screen-off is the typical timing of OEM "clean up on
+  lock" app killers (Xiaomi/HyperOS, Huawei, Oppo/Realme, Samsung sleeping apps), not of
+  AOSP Doze (which needs much longer and lets foreground services run).
+- Suggested fixes: Battery = Unrestricted / no restrictions; Autostart on; lock the app
+  in Recents; Samsung "Never sleeping apps"; if needed via adb:
+  `dumpsys deviceidle whitelist +com.bluedunz`,
+  `cmd appops set com.bluedunz RUN_ANY_IN_BACKGROUND allow`. Fallback: charger +
+  Developer options "Stay awake".
+- To tell app-killed from link-dropped: GnuBox log on the 9300 (stage/error at the drop)
+  and `adb logcat | grep -i -E "bluedun|killing"` on Android.
+- Follow-up: no battery option for the app in Settings, battery saver off, all
+  permissions on; another app's GPS-sharing service survives screen-off. So it is not an
+  OEM killer but most likely Android's background-service limit (8.0+): a service of an
+  app without a foreground-service notification is stopped ("Stopping service due to
+  app idle") ~60 s after its uid leaves the foreground. Screen off = top activity becomes
+  TOP_SLEEPING = background, hence ~70 s. Fix: put com.bluedunz on the device-idle
+  allowlist (`adb shell dumpsys deviceidle whitelist +com.bluedunz`), which exempts it
+  from the limit; or keep the screen on (charger + Stay awake).
+- adb report (2026-10-19, Motorola/MediaTek, BlueDUN++ 6.8 targetSdk 37): CONFIRMED.
+  BlueDUNService runs as a plain background service (startForegroundCount=0, no
+  isForeground). Screen off 22:28:04 -> `Stopping service due to app idle:
+  com.bluedunz/.BlueDUNService` at 22:29:04 (exactly 60 s); its restart attempt is
+  refused ("Background start not allowed", "startForegroundService() not allowed").
+  GPS NMEA Tether is a real foreground service (isForeground=true, types=0x18
+  connectedDevice|location), notification exists but is hidden. Neither app was on
+  the deviceidle allowlist. Fix being tested: `adb shell dumpsys deviceidle whitelist
+  +com.bluedunz` (allowlisted uids are exempt from the background-service idle stop).
+- RESULT: after `dumpsys deviceidle whitelist +com.bluedunz` the connection stayed up
+  >4 min with the screen off (map downloads continued). FIXED. Survives reboot; must be
+  redone after reinstalling BlueDUN++ or clearing its data.

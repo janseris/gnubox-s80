@@ -36,3 +36,12 @@
   GnuBox's `ATD*99#` plus empty PPP auth should be acceptable. **[unverified]**
 - What GnuBox expects: a DUN SDP record (UUID 0x1103), `AT` → `OK`, `ATD*99#` →
   `CONNECT`, then PPP with IP and DNS assigned.
+
+### Android: BlueDUN++ stops 60 s after screen-off (FIXED, tested 2026-10-19)
+BlueDUN++ 6.8 runs BlueDUNService as a plain background service, so Android 8+ stops it
+("Stopping service due to app idle") 60 s after the screen goes off, and refuses to let
+it restart. Fix, once, from a PC with USB debugging:
+`adb shell dumpsys deviceidle whitelist +com.bluedunz` (check: `adb shell dumpsys
+deviceidle whitelist | findstr bluedun`). Redo after reinstalling BlueDUN++.
+`host/adb-bluedun-test.bat` collects the evidence (service state, standby bucket,
+allowlist, logcat at the drop).

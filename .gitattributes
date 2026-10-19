@@ -1,3 +1,4 @@
 * text=auto eol=lf
 *.bmp binary
 *.sis binary
+*.bat text eol=crlf
