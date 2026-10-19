@@ -1,0 +1,90 @@
+// gnubox.rss - GnuBox for Series 80 - GPL v2 or later
+
+NAME GNBX
+
+#include <eikon.rh>
+#include <eikon.rsg>
+#include <uikon.hrh>
+#include "gnubox.hrh"
+
+RESOURCE RSS_SIGNATURE { }
+
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+	{
+	menubar = r_gnubox_menubar;
+	cba = r_gnubox_cba;
+	}
+
+// the first button switches between Connect and Disconnect at run time
+RESOURCE CBA r_gnubox_cba
+	{
+	buttons =
+		{
+		CBA_BUTTON { id = EGnuboxCmdConnect; txt = "Connect"; },
+		CBA_BUTTON { id = EGnuboxCmdDeviceMenu; txt = "Device"; },
+		CBA_BUTTON { id = EGnuboxCmdShowStatus; txt = "Details"; },
+		CBA_BUTTON { id = EEikCmdExit; txt = "Exit"; }
+		};
+	}
+
+RESOURCE MENU_BAR r_gnubox_menubar
+	{
+	titles =
+		{
+		MENU_TITLE { menu_pane = r_gnubox_menu_device; txt = "Device"; },
+		MENU_TITLE { menu_pane = r_gnubox_menu_main; txt = "Connection"; },
+		MENU_TITLE { menu_pane = r_gnubox_menu_default; txt = "Default"; },
+		MENU_TITLE { menu_pane = r_gnubox_menu_settings; txt = "Settings"; }
+		};
+	}
+
+// paired devices are added below this item at run time (DynInitMenuPaneL)
+RESOURCE MENU_PANE r_gnubox_menu_device
+	{
+	items =
+		{
+		MENU_ITEM { command = EGnuboxCmdSearchDevice; txt = "Search for a new device..."; flags = EEikMenuItemSeparatorAfter; }
+		};
+	}
+
+// the phone's default connection; access points are added at run time
+RESOURCE MENU_PANE r_gnubox_menu_default
+	{
+	items =
+		{
+		MENU_ITEM { command = EGnuboxCmdDefaultAsk; txt = "Ask every time"; flags = EEikMenuItemCheckBox | EEikMenuItemSeparatorAfter; }
+		};
+	}
+
+RESOURCE MENU_PANE r_gnubox_menu_main
+	{
+	items =
+		{
+		MENU_ITEM { command = EGnuboxCmdConnect; txt = "Connect"; },
+		MENU_ITEM { command = EGnuboxCmdDisconnect; txt = "Disconnect"; flags = EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EGnuboxCmdShowStatus; txt = "Details"; },
+		MENU_ITEM { command = EGnuboxCmdClearLog; txt = "Clear screen"; flags = EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EEikCmdExit; txt = "Exit"; }
+		};
+	}
+
+RESOURCE MENU_PANE r_gnubox_menu_settings
+	{
+	items =
+		{
+		MENU_ITEM { command = EGnuboxCmdModeDialup; txt = "Other device: Android phone (BlueDUN)"; flags = EEikMenuItemCheckBox; },
+		MENU_ITEM { command = EGnuboxCmdModePc; txt = "Other device: PC (pppd)"; flags = EEikMenuItemCheckBox | EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EGnuboxCmdAutoReconnect; txt = "Reconnect automatically"; flags = EEikMenuItemCheckBox; },
+		MENU_ITEM { command = EGnuboxCmdCompression; txt = "Compression (may be faster)"; flags = EEikMenuItemCheckBox; },
+		MENU_ITEM { command = EGnuboxCmdTcpWindow; txt = "Bigger TCP window (faster downloads)"; flags = EEikMenuItemCheckBox | EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EGnuboxCmdSecNone; txt = "Bluetooth security: none (recommended)"; flags = EEikMenuItemCheckBox; },
+		MENU_ITEM { command = EGnuboxCmdSecAuth; txt = "Bluetooth security: pairing required"; flags = EEikMenuItemCheckBox; },
+		MENU_ITEM { command = EGnuboxCmdSecEncrypt; txt = "Bluetooth security: pairing + encryption"; flags = EEikMenuItemCheckBox | EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EGnuboxCmdCreateRecords; txt = "Repair access point"; },
+		MENU_ITEM { command = EGnuboxCmdRemoveRecords; txt = "Remove access point"; },
+		MENU_ITEM { command = EGnuboxCmdDumpCommDb; txt = "Save diagnostics"; flags = EEikMenuItemSeparatorAfter; },
+		MENU_ITEM { command = EGnuboxCmdAbout; txt = "About"; }
+		};
+	}

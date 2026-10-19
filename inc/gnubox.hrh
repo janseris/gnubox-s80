@@ -1,0 +1,48 @@
+// gnubox.hrh - command ids for GnuBox for Series 80
+// GPL v2 or later, see COPYING.txt
+
+#ifndef GNUBOX_HRH
+#define GNUBOX_HRH
+
+enum TGnuboxCommandIds
+	{
+	EGnuboxCmdSelectPc = 0x1000,
+	EGnuboxCmdCreateRecords,
+	EGnuboxCmdTest,
+	EGnuboxCmdStop,
+	EGnuboxCmdShowStatus,
+	EGnuboxCmdDumpCommDb,
+	EGnuboxCmdRemoveRecords,
+	EGnuboxCmdSecurity,
+	EGnuboxCmdClearLog,
+	EGnuboxCmdAbout,
+	EGnuboxCmdMode,
+	EGnuboxCmdPickPaired,
+	EGnuboxCmdSearchDevice,
+	EGnuboxCmdMakePreferred,
+	EGnuboxCmdRestorePreferred,
+	EGnuboxCmdConnect,
+	EGnuboxCmdDisconnect,
+	EGnuboxCmdDeviceMenu,
+	EGnuboxCmdModeDialup,
+	EGnuboxCmdModePc,
+	EGnuboxCmdAutoReconnect,
+	EGnuboxCmdUseForAll,
+	EGnuboxCmdSecNone,
+	EGnuboxCmdSecAuth,
+	EGnuboxCmdSecEncrypt,
+	EGnuboxCmdCompression,
+	EGnuboxCmdTcpWindow,
+	EGnuboxCmdDefaultAsk,
+	EGnuboxCmdDefaultMenu
+	};
+
+// dynamic "Device" menu items: one per paired device
+#define EGnuboxCmdDeviceFirst 0x1100
+#define EGnuboxMaxDevices 20
+
+// dynamic "Default" menu items: one per access point
+#define EGnuboxCmdIapFirst 0x1200
+#define EGnuboxMaxIaps 30
+
+#endif

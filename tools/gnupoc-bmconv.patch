@@ -1,0 +1,13 @@
+diff --git a/tools/bmconv-1.1.0-2/src/pbmcomp.cpp b/tools/bmconv-1.1.0-2/src/pbmcomp.cpp
+index 70314af..8440dc9 100644
+--- a/tools/bmconv-1.1.0-2/src/pbmcomp.cpp
++++ b/tools/bmconv-1.1.0-2/src/pbmcomp.cpp
+@@ -522,7 +522,7 @@ char* BitmapCompiler::UnadornedName(char* aName)
+ 	char* foundExt = strrchr(aName,'.');
+ 
+ 	char* foundPath = (foundDir > foundUrl) ? foundDir : foundUrl;
+-	char* firstchar = (foundPath > 0) ? foundPath + 1 : aName;
++	char* firstchar = (foundPath != 0) ? foundPath + 1 : aName;
+ 	char* lastchar = (foundExt > firstchar) ? foundExt : aName+len;
+ 
+ 	static char result[256];

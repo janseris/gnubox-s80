@@ -1,0 +1,14 @@
+// gnuboxaif.rss - application information for GnuBox for Series 80
+#include <aiftool.rh>
+
+RESOURCE AIF_DATA
+	{
+	app_uid = 0x097764f0;
+	num_icons = 2;
+	embeddability = KAppNotEmbeddable;
+	newfile = KAppDoesNotSupportNewFile;
+	caption_list =
+		{
+		CAPTION { code = ELangEnglish; caption = "GnuBox"; }
+		};
+	}

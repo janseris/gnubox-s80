@@ -1,0 +1,9 @@
+; gnubox.pkg - GnuBox for Series 80 (Nokia 9300 / 9300i / 9500)
+&EN
+#{"GnuBox"},(0x097764f0),2,6,0
+; Series 80 Developer Platform 2.0
+(0x101F8ED2), 0, 0, 0, {"Series80ProductID"}
+
+"..\..\..\root\sym\s80_20\epoc32\release\armi\urel\gnubox.app"-"!:\system\apps\gnubox\gnubox.app"
+"..\..\..\root\sym\s80_20\epoc32\data\z\system\apps\gnubox\gnubox.rsc"-"!:\system\apps\gnubox\gnubox.rsc"
+"..\..\..\root\sym\s80_20\epoc32\data\z\system\apps\gnubox\gnubox.aif"-"!:\system\apps\gnubox\gnubox.aif"

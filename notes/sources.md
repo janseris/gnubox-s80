@@ -1,0 +1,14 @@
+# Sources
+- Archived gnubox source: https://github.com/LukeUsher/gnubox
+- Mika Raento, gnubox for 6600: https://mikie.iki.fi/symbian/bt-ap.html
+- Symbian OS source dump (csdagt, btcomm): https://github.com/cdaffara/symbiandump-os1
+  - `sf/os/cellularsrv/telephonyprotocols/csdagt/src/Nd_Agent.cpp`, `ND_DIRCT.CPP`, `ND_DBACC.CPP`
+  - `.../csdagt/script/SCOMMAND.CPP`, `SSCREXEC.CPP`, `TS_CsdAgt/CsdAgtTestScriptErr.cpp`
+  - `sf/os/bt/bluetooth/btcomm/src/states.cpp`
+- GnuPoc: https://github.com/mstorsjo/gnupoc-package
+- Nokia 9500/9300 user guides (IP passthrough, BT profiles): https://www.manualslib.com/manual/112261/Nokia-9500.html
+- All About Symbian forum, IP passthrough + Network Bridge: https://allaboutsymbian.com/forum/thread/60563/
+- 3G shutdown in CZ: https://www.newsite.developingtelecoms.com/tech/networks/data-centre-networks/czech-mate-for-3g-as-o2-and-t-mobile-complete-shutdown
+- ČTÚ 2G obligation for O2: https://www.lupa.cz/aktuality/ctu-obnovil-o2-pridel-v-pasmu-2100-mhz-spojil-s-nim-i-povinnost-udrzet-provoz-2g/
+- BlueDUN+: https://apkcombo.com/bluedun/com.bluedunz/
+- SDK files: S80_DP_2_0_SDK (cdbcols.h, btdefcommport.h, btregistry.h, nd_err.h, wins/c/ced_npacket.cfg)

@@ -1,0 +1,26 @@
+// gnubox.mmp - GnuBox for Series 80 (Nokia 9300/9300i/9500), Symbian OS 7.0s
+TARGET          gnubox.app
+TARGETTYPE      app
+UID             0x100039ce 0x097764f0
+TARGETPATH      \system\apps\gnubox
+
+SOURCEPATH      ..\src
+SOURCE          gnuboxui.cpp
+SOURCE          gnuboxutil.cpp
+SOURCE          gnuboxcommdb.cpp
+SOURCE          gnuboxbt.cpp
+SOURCE          gnuboxconn.cpp
+SOURCE          gnuboxtcp.cpp
+
+SOURCEPATH      .
+RESOURCE        gnubox.rss
+
+USERINCLUDE     ..\inc
+SYSTEMINCLUDE   \epoc32\include
+
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib eikcoctl.lib
+LIBRARY         eikctl.lib bafl.lib efsrv.lib estor.lib
+LIBRARY         commdb.lib esock.lib insock.lib
+LIBRARY         bluetooth.lib btextnotifiers.lib btregistry.lib
+
+AIF gnubox.aif ..\aif gnuboxaif.rss c16 gnubox25.bmp gnubox25_mask.bmp gnubox64.bmp gnubox64_mask.bmp

@@ -1,0 +1,9 @@
+# build output of GnuPoc / abld lives in $EPOCROOT, not here
+*.o
+*.tmp
+__pycache__/
+sis/gnubox.sis
+# never commit Nokia/Symbian SDKs or toolchain archives
+*.zip
+*.7z*
+*.tar.bz2

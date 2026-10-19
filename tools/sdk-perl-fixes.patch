@@ -1,0 +1,78 @@
+diff -ru '--exclude=*.pyc' a/build/buildclient.pl b/build/buildclient.pl
+--- a/build/buildclient.pl	2026-10-01 16:01:11.071556578 +0200
++++ b/build/buildclient.pl	2026-10-01 16:01:32.662686322 +0200
+@@ -36,7 +36,7 @@
+   my ($iExitAfter) = -1; #Set default to never exit
+   GetOptions('h' => \$iHelp, 'd=s' => \@iDataSource, 'debug:s' => \$iDebug, 'w=i' => \$iConnectWait, 'c=s' => \$iClientName, 'e=i' => \$iExitAfter);
+ 
+-  if (($iHelp) || (!defined @iDataSource) || (!defined $iConnectWait) || (!defined $iClientName))
++  if (($iHelp) || (!(@iDataSource)) || (!defined $iConnectWait) || (!defined $iClientName))
+   {
+     &Usage();
+   } else {
+diff -ru '--exclude=*.pyc' a/build/genxml.pl b/build/genxml.pl
+--- a/build/genxml.pl	2026-10-01 16:01:11.066866133 +0200
++++ b/build/genxml.pl	2026-10-01 16:01:32.659814414 +0200
+@@ -35,7 +35,7 @@
+   my ($iHelp, $iPort, @iDataSource, $iLogFile, $iSourceDir, $iReallyClean, $iClean);
+   GetOptions('h' => \$iHelp, 'd=s@' =>\@iDataSource, 'o=s' => \$iDataOutput, 'l=s' => \$iLogFile, 's=s' => \$iSourceDir, 'r=s' => \$iReallyClean, 'c=s' => \$iClean);
+ 
+-  if (($iHelp) || (!defined @iDataSource) || (!defined $iDataOutput) || (!defined $iLogFile) || (!defined $iSourceDir))
++  if (($iHelp) || (!(@iDataSource)) || (!defined $iDataOutput) || (!defined $iLogFile) || (!defined $iSourceDir))
+   {
+     Usage();
+   } elsif (-e $iDataOutput) {
+diff -ru '--exclude=*.pyc' a/e32plat.pm b/e32plat.pm
+--- a/e32plat.pm	2026-10-04 12:31:42.505322520 +0200
++++ b/e32plat.pm	2026-10-01 16:01:36.608326983 +0200
+@@ -270,7 +270,7 @@
+ 	foreach $ASSP (@ASSPs) {
+ 		my $File= lc $Path.$ASSP.'.assp';
+ #		check whether the assp is already defined
+-		if (defined %{$Plat{$ASSP}}) {
++		if (%{$Plat{$ASSP}}) {
+ 			warn(
+ 				"$File : warning: ASSP \"$ASSP\" already defined\n",
+ 				" ... skipping this module\n"
+diff -ru '--exclude=*.pyc' a/htmlscanlog.pl b/htmlscanlog.pl
+--- a/htmlscanlog.pl	2026-10-01 16:01:11.372019630 +0200
++++ b/htmlscanlog.pl	2026-10-01 16:01:32.665565860 +0200
+@@ -311,7 +311,7 @@
+ 
+   # Print the by Component Data
+   # If there is a complete set of HiRes data then use that instead of the LowRes data
+-  if ((defined %HiResComponents) && !$HiResErrorFlag)
++  if (((%HiResComponents)) && !$HiResErrorFlag)
+   {
+     foreach $component (sort keys %HiResComponents)
+ 	{
+@@ -373,7 +373,7 @@
+ 
+   # Print the by Command Data
+   # If there is a complete set of HiRes data then use that instead of the LowRes data
+-  if ((defined %HiResCommands) && !$HiResErrorFlag)
++  if (((%HiResCommands)) && !$HiResErrorFlag)
+   {
+     foreach $command (sort keys %HiResCommands)
+ 	{
+@@ -646,7 +646,7 @@
+   my ($iHelp, @iLogs, $iOutput, $iTitle, $iVerbose, $iDiff, $iWhat);
+   GetOptions('h' => \$iHelp, 'l=s' =>\@iLogs, 'o=s' => \$iOutput, 't=s' => \$iTitle, 'v+' => \$iVerbose, 'd=s' =>\$iDiff, 'w=s' =>\$iWhat);
+ 
+-  if (($iHelp) || (!defined @iLogs) || (!defined $iOutput))
++  if (($iHelp) || (!(@iLogs)) || (!defined $iOutput))
+   {
+     Usage();
+   } elsif (-e $iOutput) {
+diff -ru '--exclude=*.pyc' a/parser.pm b/parser.pm
+--- a/parser.pm	2026-10-01 16:01:11.342966447 +0200
++++ b/parser.pm	2026-10-01 16:01:25.425258099 +0200
+@@ -25,7 +25,7 @@
+ sub nextNonEmptyStrippedDownLine
+ 	{
+ 	my $fileHandle=shift;
+-	if (defined(@PARSER::nextNonEmptyStrippedDownLine) && (@PARSER::nextNonEmptyStrippedDownLine>0))
++	if ((@PARSER::nextNonEmptyStrippedDownLine) && (@PARSER::nextNonEmptyStrippedDownLine>0))
+ 		{
+ 		if (@{$PARSER::nextNonEmptyStrippedDownLine[0]}!=2)
+ 			{
