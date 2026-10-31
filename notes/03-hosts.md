@@ -13,13 +13,17 @@
 - The 9300 uses legacy PIN pairing: in bluetoothctl run `agent on`,
   `discoverable on`, `pairable on`, then `trust`.
 
-## Windows 11 [docs/unverified]
-- Windows can offer an incoming Bluetooth COM port (More Bluetooth settings > COM Ports),
-  but has no usable PPP server on it. Incoming direct-cable RAS connections no longer
-  work in modern Windows.
-- WSL2: the stock kernel can't use the laptop's Bluetooth. **[unverified]**
-- Workable on that laptop: an Ubuntu live USB ("Try Ubuntu") running gnubox-host.py, or a
-  Linux VM with the Bluetooth USB adapter passed through.
+## Windows 11 (GnuBox mode: PC) [tested on Linux with a simulated phone; not yet with the 9300]
+- Windows has no usable PPP server on a Bluetooth COM port (incoming direct-cable RAS is gone),
+  so `host/windows/gnubox_winshare.py` does it in user space: the *incoming* Bluetooth COM port
+  (More Bluetooth settings > COM Ports > Add > Incoming; Windows registers an SPP service),
+  PPP server (LCP, PAP accept, IPCP 10.64.64.2 / DNS 10.64.64.1, rejects VJ and CCP), and a
+  user-space NAT (TCP termination + real sockets, UDP, DNS via Windows' resolver, ping).
+  Python 3 + pyserial, no admin rights. Setup: `host/windows/README.md`.
+- Uses the phone's ACCM (Symbian asks for 0): control bytes are not escaped, ~12% more speed
+  on binary data. 37.9 kB/s on a 40 kB/s test link.
+- Older notes: WSL2 can't use the laptop's Bluetooth; an Ubuntu live USB with gnubox-host.py
+  also works.
 
 ## Android (GnuBox mode: Dial-up server) [docs; not yet tested with the 9300]
 - Google Play: **BlueDUN++** (`com.bluedunz`, about $3.99), updated 2025-08-19. This is the

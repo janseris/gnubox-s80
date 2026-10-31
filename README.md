@@ -2,7 +2,7 @@
 
 Internet over Bluetooth for the **Nokia 9300 / 9300i / 9500** (Series 80, Symbian OS 7.0s).
 The internet comes from an **Android phone** running a Bluetooth dial-up app (BlueDUN++),
-or from a **Linux PC** running `pppd`. No GSM data or GPRS is used.
+or from a **PC**: Windows (`host/windows`) or Linux running `pppd`. No GSM data or GPRS is used.
 
 GnuBox is a new Series 80 port of the idea behind [gnubox](https://github.com/LukeUsher/gnubox)
 (Mal Minhas, 2002; 6600 version by [Mika Raento](https://mikie.iki.fi/symbian/bt-ap.html)).
@@ -52,9 +52,11 @@ Details, with the Symbian source references, are in [`notes/02-mechanism.md`](no
    **Important:** Android stops BlueDUN++ one minute after the screen turns off. Fix it
    once from a PC with USB debugging: `adb shell dumpsys deviceidle whitelist +com.bluedunz`
    (repeat after reinstalling BlueDUN++). `host/adb-bluedun-test.bat` checks this.
-   **PC instead (not tested end to end yet):** run `sudo host/gnubox-host.py` (needs
-   `bluez ppp python3-dbus python3-gi` and `nft` or `iptables`), then pair the PC with
-   the 9300 using a PIN.
+   **PC instead (not tested end to end yet):** on **Windows** run
+   `host/windows/start-winshare.bat` (Python + pyserial, setup in
+   [`host/windows/README.md`](host/windows/README.md)); on **Linux** run
+   `sudo host/gnubox-host.py` (needs `bluez ppp python3-dbus python3-gi` and `nft` or
+   `iptables`). Pair the PC with the 9300 first.
 2. Install `gnubox.sis` on the 9300 and start **GnuBox**.
 3. **Device** → choose the phone or PC from the paired devices. GnuBox remembers it.
 4. **Settings:** set *Other device* to *Android phone (BlueDUN)* or *PC (pppd)*.
@@ -128,7 +130,7 @@ are listed in [`notes/04-build.md`](notes/04-build.md).
 | `group/` | `bld.inf`, `gnubox.mmp`, resource file |
 | `aif/` | icons (25×20 and 64×50) and AIF resource |
 | `sis/` | package file and SIS build script |
-| `host/` | PC side for Linux: BlueZ Profile API script, classic rfcomm script |
+| `host/` | PC side: `windows/` (Windows PPP + NAT server over the incoming Bluetooth COM port), Linux BlueZ Profile API script, classic rfcomm script, Android adb test |
 | `tools/` | toolchain/SDK setup scripts and patches for Linux |
 | `notes/` | everything found along the way: platform facts, mechanism, hosts, build, open questions, test log |
 | `release/` | prebuilt `.sis` |
