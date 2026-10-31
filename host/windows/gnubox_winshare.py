@@ -8,7 +8,8 @@ phone's traffic to the internet through ordinary Windows sockets (a small user-s
 BlueDUN++ does on Android). No Windows networking settings, ICS, admin rights or drivers.
 
     pip install pyserial
-    python gnubox_winshare.py COM5          (the INCOMING Bluetooth COM port, see README)
+    python gnubox_winshare.py               (direct Bluetooth: no COM port needed)
+    python gnubox_winshare.py COM5          (or an INCOMING Bluetooth COM port, see README)
 
     python gnubox_winshare.py --list   (shows the COM ports; use the INCOMING Bluetooth one)
 
@@ -28,8 +29,15 @@ SEND_WINDOW_CAP = 32768        # max unacked bytes in flight to the phone
 VERBOSE = False
 
 
+def _print_sink(line):
+    print(line, flush=True)
+
+
+LOG_SINK = _print_sink        # the GUI replaces this
+
+
 def log(*a):
-    print(time.strftime("%H:%M:%S"), *a, flush=True)
+    LOG_SINK(time.strftime("%H:%M:%S") + " " + " ".join(str(x) for x in a))
 
 
 def vlog(*a):
@@ -138,17 +146,226 @@ class SerialTransport:
         self.ser.close()
 
 
+# --- direct Bluetooth (Windows): the program itself is the Serial Port service, no COM port.
+# Documented Win32 calls (ws2_32): an RFCOMM listening socket (AF_BTH) plus an SDP record
+# for the Serial Port service class (WSASetService), the same thing C#/.NET libraries do
+# with P/Invoke. GnuBox's "Other device: PC" mode looks up exactly this service.
+AF_BTH, BTHPROTO_RFCOMM, NS_BTH = 32, 3, 16
+BT_PORT_ANY = 0xFFFFFFFF
+SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
+
+
+def _bt_structs():
+    import ctypes
+    from ctypes import c_uint16, c_uint32, c_uint64, c_int, c_void_p, c_wchar_p, POINTER, Structure
+
+    class GUID(Structure):
+        _fields_ = [("Data1", c_uint32), ("Data2", c_uint16), ("Data3", c_uint16), ("Data4", ctypes.c_ubyte * 8)]
+
+    class SOCKADDR_BTH(Structure):        # ws2bth.h: packed (pshpack1), 30 bytes
+        _pack_ = 1
+        _fields_ = [("addressFamily", c_uint16), ("btAddr", c_uint64), ("serviceClassId", GUID), ("port", c_uint32)]
+
+    class SOCKET_ADDRESS(Structure):
+        _fields_ = [("lpSockaddr", c_void_p), ("iSockaddrLength", c_int)]
+
+    class CSADDR_INFO(Structure):
+        _fields_ = [("LocalAddr", SOCKET_ADDRESS), ("RemoteAddr", SOCKET_ADDRESS), ("iSocketType", c_int), ("iProtocol", c_int)]
+
+    class WSAQUERYSETW(Structure):
+        _fields_ = [("dwSize", c_uint32), ("lpszServiceInstanceName", c_wchar_p), ("lpServiceClassId", POINTER(GUID)),
+                    ("lpVersion", c_void_p), ("lpszComment", c_wchar_p), ("dwNameSpace", c_uint32),
+                    ("lpNSProviderId", c_void_p), ("lpszContext", c_wchar_p), ("dwNumberOfProtocols", c_uint32),
+                    ("lpafpProtocols", c_void_p), ("lpszQueryString", c_wchar_p), ("dwNumberOfCsAddrs", c_uint32),
+                    ("lpcsaBuffer", POINTER(CSADDR_INFO)), ("dwOutputFlags", c_uint32), ("lpBlob", c_void_p)]
+
+    def guid(text):
+        import uuid
+        u = uuid.UUID(text)
+        g = GUID()
+        g.Data1, g.Data2, g.Data3 = u.time_low, u.time_mid, u.time_hi_version
+        for i, b in enumerate(u.bytes[8:]):
+            g.Data4[i] = b
+        return g
+    return GUID, SOCKADDR_BTH, CSADDR_INFO, WSAQUERYSETW, guid
+
+
+def bt_addr_str(a):
+    return ":".join("%02X" % ((a >> (8 * i)) & 0xFF) for i in range(5, -1, -1))
+
+
+class _RawSocket:
+    """recv/sendall/close on a raw Winsock handle through ws2_32 (fallback)."""
+    def __init__(self, ws2, h):
+        import ctypes
+        self.ws2, self.h, self.ct = ws2, h, ctypes
+        ws2.recv.argtypes = [ctypes.c_size_t, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+        ws2.send.argtypes = [ctypes.c_size_t, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+        self.buf = ctypes.create_string_buffer(65536)
+
+    def fileno(self):
+        return self.h
+
+    def recv(self, n):
+        r, _, _ = select.select([self], [], [], 0.2)
+        if not r:
+            raise socket.timeout()
+        got = self.ws2.recv(self.h, self.buf, min(n, 65536), 0)
+        if got < 0:
+            raise OSError("Bluetooth recv: error %d" % self.ct.get_last_error())
+        return self.buf.raw[:got]
+
+    def sendall(self, data):
+        while data:
+            n = self.ws2.send(self.h, data, len(data), 0)
+            if n <= 0:
+                raise OSError("Bluetooth send: error %d" % self.ct.get_last_error())
+            data = data[n:]
+
+    def close(self):
+        self.ws2.closesocket(self.h)
+
+
+class BluetoothTransport:
+    """Windows only: listens for the phone on an RFCOMM channel advertised as a Serial Port service."""
+    def __init__(self, stop=None, name="GnuBox Share"):
+        import ctypes
+        GUID, SOCKADDR_BTH, CSADDR_INFO, WSAQUERYSETW, guid = _bt_structs()
+        self.ctypes = ctypes
+        self.SOCKADDR_BTH = SOCKADDR_BTH
+        ws2 = ctypes.WinDLL("ws2_32", use_last_error=True)
+        self.ws2 = ws2
+        ws2.socket.restype = ctypes.c_size_t
+        ws2.socket.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        ws2.bind.argtypes = [ctypes.c_size_t, ctypes.c_void_p, ctypes.c_int]
+        ws2.listen.argtypes = [ctypes.c_size_t, ctypes.c_int]
+        ws2.getsockname.argtypes = [ctypes.c_size_t, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
+        ws2.accept.restype = ctypes.c_size_t
+        ws2.accept.argtypes = [ctypes.c_size_t, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
+        ws2.closesocket.argtypes = [ctypes.c_size_t]
+        ws2.WSASetServiceW.argtypes = [ctypes.POINTER(WSAQUERYSETW), ctypes.c_int, ctypes.c_uint32]
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM).close()     # makes sure Winsock is started
+        invalid = ctypes.c_size_t(-1).value
+        self.lsock = ws2.socket(AF_BTH, socket.SOCK_STREAM, BTHPROTO_RFCOMM)
+        if self.lsock == invalid:
+            raise OSError("Bluetooth socket: error %d (no Bluetooth adapter, or it is off?)" % ctypes.get_last_error())
+        self.c = None
+        self.registered = False
+        try:
+            sa = SOCKADDR_BTH()
+            sa.addressFamily = AF_BTH
+            sa.port = BT_PORT_ANY
+            if ws2.bind(self.lsock, ctypes.byref(sa), ctypes.sizeof(sa)) != 0:
+                raise OSError("Bluetooth bind: error %d" % ctypes.get_last_error())
+            if ws2.listen(self.lsock, 1) != 0:
+                raise OSError("Bluetooth listen: error %d" % ctypes.get_last_error())
+            ln = ctypes.c_int(ctypes.sizeof(sa))
+            ws2.getsockname(self.lsock, ctypes.byref(sa), ctypes.byref(ln))
+            self.channel = sa.port
+            # SDP record: Serial Port service on this channel
+            self.sa = sa
+            self.uuid = guid(SPP_UUID)
+            self.csa = CSADDR_INFO()
+            self.csa.LocalAddr.lpSockaddr = ctypes.cast(ctypes.byref(self.sa), ctypes.c_void_p)
+            self.csa.LocalAddr.iSockaddrLength = ctypes.sizeof(self.sa)
+            self.csa.iSocketType = socket.SOCK_STREAM
+            self.csa.iProtocol = BTHPROTO_RFCOMM
+            self.qs = WSAQUERYSETW()
+            self.qs.dwSize = ctypes.sizeof(WSAQUERYSETW)
+            self.qs.lpszServiceInstanceName = name
+            self.qs.lpszComment = "Internet for the Nokia 9300 (GnuBox)"
+            self.qs.lpServiceClassId = ctypes.pointer(self.uuid)
+            self.qs.dwNameSpace = NS_BTH
+            self.qs.dwNumberOfCsAddrs = 1
+            self.qs.lpcsaBuffer = ctypes.pointer(self.csa)
+            if ws2.WSASetServiceW(ctypes.byref(self.qs), 0, 0) != 0:      # RNRSERVICE_REGISTER
+                raise OSError("Bluetooth service registration: error %d" % ctypes.get_last_error())
+            self.registered = True
+            self.name = "Bluetooth channel %d" % self.channel
+            log("Bluetooth: Serial Port service '%s' on RFCOMM channel %d - press Connect in GnuBox" % (name, self.channel))
+
+            class _H:                       # select() on the raw listening socket
+                def __init__(self, h):
+                    self.h = h
+
+                def fileno(self):
+                    return self.h
+            lh = _H(self.lsock)
+            while True:
+                r, _, _ = select.select([lh], [], [], 0.5)
+                if r:
+                    break
+                if stop is not None and stop.is_set():
+                    raise KeyboardInterrupt
+            peer = SOCKADDR_BTH()
+            pl = ctypes.c_int(ctypes.sizeof(peer))
+            h = ws2.accept(self.lsock, ctypes.byref(peer), ctypes.byref(pl))
+            if h == invalid:
+                raise OSError("Bluetooth accept: error %d" % ctypes.get_last_error())
+            try:
+                self.c = socket.socket(AF_BTH, socket.SOCK_STREAM, BTHPROTO_RFCOMM, fileno=h)
+                self.c.settimeout(0.2)
+            except OSError:
+                self.c = _RawSocket(ws2, h)       # Python can't wrap it: plain Win32 recv/send
+            log("Bluetooth: phone %s connected" % bt_addr_str(peer.btAddr))
+        except BaseException:
+            self.close()
+            raise
+
+    def read(self):
+        try:
+            d = self.c.recv(65536)
+        except socket.timeout:
+            return b""
+        except OSError:
+            raise EOFError
+        if not d:
+            raise EOFError
+        return d
+
+    def write(self, data):
+        self.c.sendall(data)
+
+    def close(self):
+        if self.c is not None:
+            try:
+                self.c.close()
+            except OSError:
+                pass
+            self.c = None
+        if self.registered:
+            try:
+                self.ws2.WSASetServiceW(self.ctypes.byref(self.qs), 2, 0)      # RNRSERVICE_DELETE
+            except Exception:
+                pass
+            self.registered = False
+        if self.lsock is not None:
+            try:
+                self.ws2.closesocket(self.lsock)
+            except Exception:
+                pass
+            self.lsock = None
+
+
 class TcpTransport:
     """For testing: one client at a time on a TCP port acts as the serial line."""
-    def __init__(self, addr):
+    def __init__(self, addr, stop=None):
         host, port = addr.rsplit(":", 1)
         self.srv = socket.socket()
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv.bind((host, int(port)))
         self.srv.listen(1)
+        self.srv.settimeout(0.5)
         self.name = "tcp " + addr
         log("waiting for a test client on", addr)
-        self.c, _ = self.srv.accept()
+        while True:
+            try:
+                self.c, _ = self.srv.accept()
+                break
+            except socket.timeout:
+                if stop is not None and stop.is_set():
+                    self.srv.close()
+                    raise KeyboardInterrupt
         self.c.settimeout(0.2)
 
     def read(self):
@@ -828,6 +1045,17 @@ class Nat:
 
 
 # ------------------------------------------------------------------ main loop
+class Status:
+    """What the GUI shows; updated by serve()."""
+    def __init__(self):
+        self.state = "stopped"       # stopped, waiting, negotiating, up, error
+        self.port = ""
+        self.rx = 0                  # bytes from the phone (raw link)
+        self.tx = 0                  # bytes to the phone (raw link)
+        self.connections = 0
+        self.since = None            # time the IP link came up
+
+
 class Link:
     def __init__(self, transport, nat):
         self.t = transport
@@ -844,7 +1072,9 @@ class Link:
         self.nat.on_reset()
 
 
-def serve(transport, rewrite):
+def serve(transport, rewrite, stop_event=None, status=None):
+    if status is None:
+        status = Status()
     nat = Nat(rewrite)
     link = Link(transport, nat)
     ppp = Ppp(link)
@@ -860,6 +1090,7 @@ def serve(transport, rewrite):
             while not stop.is_set():
                 d = transport.read()
                 if d:
+                    status.rx += len(d)
                     inbox.put(d)
                     try:
                         wake_w.send(b"x")
@@ -889,7 +1120,9 @@ def serve(transport, rewrite):
                         break
                     parts.append(d)
                     size += len(d)
-                transport.write(b"".join(parts))
+                data = b"".join(parts)
+                transport.write(data)
+                status.tx += len(data)
         except Exception as e:
             inbox.put(e)
 
@@ -897,8 +1130,9 @@ def serve(transport, rewrite):
     threading.Thread(target=writer, daemon=True).start()
     last_stats = time.time()
     seen_bytes = False
+    status.state = "waiting"
     try:
-        while True:
+        while not (stop_event is not None and stop_event.is_set()):
             r, w = nat.sockets()
             # don't flood the serial link: while much is queued, stop reading from servers
             if link.out.qsize() > 12:
@@ -920,6 +1154,7 @@ def serve(transport, rewrite):
                 if not seen_bytes:
                     seen_bytes = True
                     log("the phone is connected, starting PPP")
+                    status.state = "negotiating"
                 for f in dec.feed(item):
                     ppp.on_frame(f)
             nat.handle(rs, ws)
@@ -927,6 +1162,13 @@ def serve(transport, rewrite):
             if seen_bytes:
                 ppp.tick()
             nat.tick()
+            status.connections = len(nat.tcp)
+            if ppp.ip_up and status.state != "up":
+                status.state = "up"
+                status.since = time.time()
+            elif not ppp.ip_up and status.state == "up":
+                status.state = "waiting"
+                status.since = None
             if time.time() - last_stats > 60 and ppp.ip_up:
                 last_stats = time.time()
                 tin = nat.total_in + sum(c.bytes_in for c in nat.tcp.values())
@@ -935,12 +1177,62 @@ def serve(transport, rewrite):
     finally:
         stop.set()
         nat.on_reset()
+        status.connections = 0
+        status.since = None
+
+
+def run(port, rewrite=None, stop_event=None, status=None, tcp=None):
+    """Serves the phone on a COM port (or a TCP test port) until stop_event is set;
+    reopens the port after a hang-up or an error."""
+    rewrite = rewrite or {}
+    if status is None:
+        status = Status()
+    status.port = tcp or port
+    stop_event = stop_event or threading.Event()
+    while not stop_event.is_set():
+        t = None
+        try:
+            if tcp:
+                t = TcpTransport(tcp, stop_event)
+            elif port in (None, "", "BT", "bluetooth"):
+                t = BluetoothTransport(stop_event)
+            else:
+                t = SerialTransport(port)
+                log("listening on %s - on the phone press Connect in GnuBox (Other device: PC)" % port)
+            serve(t, rewrite, stop_event, status)
+        except KeyboardInterrupt:
+            break
+        except EOFError:
+            log("the phone disconnected; waiting for it again")
+        except Exception as e:
+            status.state = "error"
+            log("link error:", e, "- trying again in 3 s")
+            stop_event.wait(3)
+        finally:
+            if t is not None:
+                try:
+                    t.close()
+                except Exception:
+                    pass
+    status.state = "stopped"
+    log("sharing stopped")
+
+
+def incoming_bt_ports():
+    """COM ports that look like Windows' incoming Bluetooth serial ports (no remote address)."""
+    from serial.tools import list_ports      # pip install pyserial
+    out = []
+    for p in list_ports.comports():
+        hw = (p.hwid or "").upper()
+        if "BTHENUM" in hw and ("LOCALMFG" in hw or "000000000000" in hw):
+            out.append(p.device)
+    return out
 
 
 def main():
     global VERBOSE
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("port", nargs="?", help="incoming Bluetooth COM port, e.g. COM5")
+    ap.add_argument("port", nargs="?", default="BT", help="BT (default: direct Bluetooth) or an incoming Bluetooth COM port, e.g. COM5")
     ap.add_argument("--tcp", help="listen on host:port instead of a COM port (testing)")
     ap.add_argument("--rewrite", action="append", default=[], help="testing: ip=realip")
     ap.add_argument("-v", action="store_true", help="log every connection")
@@ -948,36 +1240,17 @@ def main():
     a = ap.parse_args()
     if a.list:
         from serial.tools import list_ports      # pip install pyserial
+        inc = incoming_bt_ports()
         for p in list_ports.comports():
-            print("%-7s %s  %s" % (p.device, p.description, p.hwid))
+            print("%-7s %s  %s%s" % (p.device, p.description, p.hwid, "   <- incoming Bluetooth" if p.device in inc else ""))
         print("Use the incoming port from Bluetooth settings > More Bluetooth settings > COM Ports.")
         return
     VERBOSE = a.v
     rewrite = dict(x.split("=", 1) for x in a.rewrite)
-    if not a.port and not a.tcp:
-        ap.error("give the incoming Bluetooth COM port, e.g.  python gnubox_winshare.py COM5")
-    while True:
-        try:
-            if a.tcp:
-                t = TcpTransport(a.tcp)
-            else:
-                t = SerialTransport(a.port)
-                log("listening on %s - start GnuBox (Other device: PC) on the phone and press Connect" % a.port)
-            serve(t, rewrite)
-        except KeyboardInterrupt:
-            log("stopped")
-            return
-        except EOFError:
-            log("the phone disconnected; waiting for it again")
-        except Exception as e:
-            log("link error:", e, "- restarting in 3 s")
-            time.sleep(3)
-        try:
-            t.close()
-        except Exception:
-            pass
-        if a.tcp:
-            continue
+    try:
+        run(a.port, rewrite, tcp=a.tcp)
+    except KeyboardInterrupt:
+        log("stopped")
 
 
 if __name__ == "__main__":

@@ -52,8 +52,8 @@ Details, with the Symbian source references, are in [`notes/02-mechanism.md`](no
    **Important:** Android stops BlueDUN++ one minute after the screen turns off. Fix it
    once from a PC with USB debugging: `adb shell dumpsys deviceidle whitelist +com.bluedunz`
    (repeat after reinstalling BlueDUN++). `host/adb-bluedun-test.bat` checks this.
-   **PC instead (not tested end to end yet):** on **Windows** run
-   `host/windows/start-winshare.bat` (Python + pyserial, setup in
+   **PC instead (not tested end to end yet):** on **Windows** open
+   `host/windows/GnuBox Share.bat` (Python; direct Bluetooth, no COM port; setup in
    [`host/windows/README.md`](host/windows/README.md)); on **Linux** run
    `sudo host/gnubox-host.py` (needs `bluez ppp python3-dbus python3-gi` and `nft` or
    `iptables`). Pair the PC with the 9300 first.
