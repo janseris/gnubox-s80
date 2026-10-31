@@ -124,7 +124,7 @@ TUNSETIFF, IFF_TUN, IFF_NO_PI = 0x400454ca, 0x0001, 0x1000
 tun = os.open("/dev/net/tun", os.O_RDWR)
 fcntl.ioctl(tun, TUNSETIFF, struct.pack("16sH", a.dev.encode(), IFF_TUN | IFF_NO_PI))
 for cmd in (["ip", "addr", "add", w.ip_str(ip) + "/32", "dev", a.dev], ["ip", "link", "set", a.dev, "mtu", "1500", "up"],
-            ["ip", "route", "add", "10.64.64.1/32", "dev", a.dev], ["ip", "route", "add", "10.99.0.0/24", "dev", a.dev]):
+            ["ip", "route", "add", "10.64.64.1/32", "dev", a.dev], ["ip", "route", "add", "10.99.0.0/24", "dev", a.dev], ["ip", "route", "add", "192.168.137.0/24", "dev", a.dev]):
     subprocess.run(cmd, check=True)
 print("TUN %s ready" % a.dev, flush=True)
 

@@ -17,7 +17,8 @@ BlueDUN++ does on Android). No Windows networking settings, ICS, admin rights or
              --tcp 127.0.0.1:7777   listen on TCP instead of a COM port (testing)
 
 Phone side gets 10.64.64.2, gateway/DNS 10.64.64.1. TCP, UDP, DNS and ping work; no
-incoming connections to the phone. Python 3.7+. GPL v2 or later, like GnuBox.
+incoming connections to the phone. The phone reaches this PC itself (e.g. localserver on port
+8000) as 10.64.64.1 or 192.168.137.1 (the USB-link address, so the same app settings work). Python 3.7+. GPL v2 or later, like GnuBox.
 """
 import argparse, errno, queue, random, select, socket, struct, threading, time
 
@@ -1181,10 +1182,18 @@ def serve(transport, rewrite, stop_event=None, status=None):
         status.since = None
 
 
+# Addresses the phone can use to reach this PC itself (its local servers, e.g. localserver on
+# port 8000): the gateway address, and the PC's USB-link (Windows ICS) address, so apps set up
+# for the USB link also work over Bluetooth.
+PC_ALIASES = {"10.64.64.1": "127.0.0.1", "192.168.137.1": "127.0.0.1"}
+
+
 def run(port, rewrite=None, stop_event=None, status=None, tcp=None):
     """Serves the phone on a COM port (or a TCP test port) until stop_event is set;
     reopens the port after a hang-up or an error."""
-    rewrite = rewrite or {}
+    merged = dict(PC_ALIASES)
+    merged.update(rewrite or {})
+    rewrite = merged
     if status is None:
         status = Status()
     status.port = tcp or port

@@ -172,3 +172,12 @@ Notes:
 - RESULT: after `dumpsys deviceidle whitelist +com.bluedunz` the connection stayed up
   >4 min with the screen off (map downloads continued). FIXED. Survives reboot; must be
   redone after reinstalling BlueDUN++ or clearing its data.
+
+## #13 Windows PC sharing over Bluetooth (2026-11-01): WORKS
+- GnuBox Share (host/windows, direct Bluetooth: Win32 AF_BTH socket + SDP Serial Port record, no
+  COM port) on the user's Windows PC; 9300 GnuBox in *Other device: PC (pppd)* mode: connected
+  and working.
+- First attempt failed because GnuBox was still in Android mode (Dial-up Networking UUID +
+  AT login script): the Device menu and Settings > Other device are separate settings.
+- Added: the PC itself is reachable from the phone as 10.64.64.1 and 192.168.137.1 (both
+  mapped to 127.0.0.1), so localserver apps work over Bluetooth too.
