@@ -181,3 +181,8 @@ Notes:
   AT login script): the Device menu and Settings > Other device are separate settings.
 - Added: the PC itself is reachable from the phone as 10.64.64.1 and 192.168.137.1 (both
   mapped to 127.0.0.1), so localserver apps work over Bluetooth too.
+- Speed (2026-11-01, FileFetch 1.0 over GnuBox Share, random data from the FileFetch server on
+  the same PC): 1 MB at 31 kB/s (peak 32), 256 KB at 28 kB/s (connection setup weighs more on a
+  small file). BlueDUN++ on Android gave ~20 kB/s average (26-30 peak) for map tiles, so the
+  Windows route is about 1.5x faster. With PPP/TCP/IP overhead the Bluetooth link carries
+  ~33 kB/s, close to what the 9300's Bluetooth 1.1 RFCOMM manages.
