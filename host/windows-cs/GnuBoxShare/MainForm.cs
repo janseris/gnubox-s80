@@ -12,6 +12,8 @@ sealed class Settings
     public bool StartSharingOnOpen { get; set; }
     public bool KeepInTray { get; set; } = true;
     public bool Verbose { get; set; }
+    public bool ShowRequests { get; set; }
+    public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
     static string File => Path.Combine(Dir, "GnuBoxShare.json");
@@ -41,6 +43,7 @@ sealed class MainForm : Form
     readonly Settings _settings = Settings.Load();
     readonly bool _autostart;
     readonly ConcurrentQueue<string> _logQueue = new();
+    readonly Traffic _traffic = new();                  // the requests list, kept across Start/Stop
     Status _status = new();
     CancellationTokenSource? _cts;
     Task? _task;
@@ -55,6 +58,10 @@ sealed class MainForm : Form
     readonly CheckBox _chkBoot = new() { Text = "Start with Windows (in the tray)", AutoSize = true };
     readonly CheckBox _chkTray = new() { Text = "Keep running in the tray when the window is closed", AutoSize = true };
     readonly CheckBox _chkVerbose = new() { Text = "Log every connection", AutoSize = true };
+    readonly CheckBox _chkRequests = new() { Text = "Show the phone's requests", AutoSize = true };
+    readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
+    readonly RequestsPanel _requests = new() { Dock = DockStyle.Fill };
+    readonly SplitContainer _bottom = new() { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
     readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), Dock = DockStyle.Fill, WordWrap = true };
     readonly NotifyIcon _tray = new();
     readonly ToolStripMenuItem _trayStartStop = new("Start sharing");
@@ -74,8 +81,8 @@ sealed class MainForm : Form
         Text = "GnuBox Share - internet for the Nokia 9300";
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(760, 600);
-        MinimumSize = new Size(640, 480);
+        ClientSize = new Size(980, 840);
+        MinimumSize = new Size(720, 640);
         Padding = new Padding(10);
 
         BuildLayout();
@@ -85,6 +92,12 @@ sealed class MainForm : Form
         _chkTray.Checked = _settings.KeepInTray;
         _chkVerbose.Checked = _settings.Verbose;
         _chkBoot.Checked = IsStartWithWindows();
+        _chkRequests.Checked = _settings.ShowRequests;
+        _bottom.Panel2Collapsed = !_settings.ShowRequests;
+        _graph.SpanSeconds = _settings.GraphSeconds;
+        _graph.SpanChanged += () => { _settings.GraphSeconds = _graph.SpanSeconds; _settings.Save(); };
+        _requests.Attach(_traffic);
+        _chkRequests.CheckedChanged += (_, _) => ShowRequestsPane(_chkRequests.Checked);
         _chkAuto.CheckedChanged += (_, _) => { _settings.StartSharingOnOpen = _chkAuto.Checked; _settings.Save(); };
         _chkTray.CheckedChanged += (_, _) => { _settings.KeepInTray = _chkTray.Checked; _settings.Save(); };
         _chkVerbose.CheckedChanged += (_, _) => { _settings.Verbose = Log.Verbose = _chkVerbose.Checked; _settings.Save(); };
@@ -94,7 +107,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.0 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.1 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -102,8 +115,10 @@ sealed class MainForm : Form
     // ---------------------------------------------------------------- layout
     void BuildLayout()
     {
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
-        for (int i = 0; i < 5; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7 };
+        for (int i = 0; i < 3; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));         // speed graph
+        for (int i = 0; i < 2; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         // Bluetooth
@@ -130,12 +145,13 @@ sealed class MainForm : Form
         stateRow.Controls.Add(_state, 0, 0);
         stateRow.Controls.Add(_go, 1, 0);
         root.Controls.Add(stateRow);
-        _stats.Margin = new Padding(6, 2, 3, 8);
+        _stats.Margin = new Padding(6, 2, 3, 6);
         root.Controls.Add(_stats);
+        root.Controls.Add(_graph);
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests });
         root.Controls.Add(opts);
 
         // phone steps
@@ -149,12 +165,46 @@ sealed class MainForm : Form
         });
         root.Controls.Add(phone);
 
-        // log
+        // log, and below it the requests (optional)
         var logBox = new GroupBox { Text = "Log", Dock = DockStyle.Fill, Padding = new Padding(6) };
         logBox.Controls.Add(_log);
-        root.Controls.Add(logBox);
+        var reqBox = new GroupBox { Text = "The phone's requests (HTTPS: only the server name is visible)", Dock = DockStyle.Fill, Padding = new Padding(6) };
+        reqBox.Controls.Add(_requests);
+        _bottom.Panel1.Controls.Add(logBox);
+        _bottom.Panel2.Controls.Add(reqBox);
+        _bottom.FixedPanel = FixedPanel.Panel1;              // a bigger window grows the requests, not the log
+        _bottom.Panel1MinSize = 70;
+        _bottom.Panel2MinSize = 150;
+        root.Controls.Add(_bottom);
 
         Controls.Add(root);
+    }
+
+    void ShowRequestsPane(bool show)
+    {
+        _settings.ShowRequests = show;
+        _settings.Save();
+        _bottom.Panel2Collapsed = !show;
+        if (show)
+        {
+            // make room: the requests want most of the space below the graph
+            var area = Screen.FromControl(this).WorkingArea;
+            if (WindowState == FormWindowState.Normal && Height < 960)
+            {
+                int h = Math.Min(960, area.Height);
+                Top = Math.Max(area.Top, Math.Min(Top, area.Bottom - h));
+                Height = h;
+            }
+            SizeBottom();
+            _requests.UpdateView(true);
+        }
+    }
+
+    /// <summary>With the requests shown, the log keeps a few lines and the requests get the rest.</summary>
+    void SizeBottom()
+    {
+        if (_bottom.Panel2Collapsed || _bottom.Height < 300) return;
+        _bottom.SplitterDistance = Math.Clamp(_bottom.Height / 4, _bottom.Panel1MinSize, 150);
     }
 
     void BuildTray()
@@ -204,11 +254,17 @@ sealed class MainForm : Form
     void StartSharing()
     {
         if (Running) return;
-        _status = new Status();
+        _status = new Status { Traffic = _traffic };
         _last = (DateTime.UtcNow, 0, 0);
+        _graph.ResetPeaks();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
-        _task = Task.Run(() => Runner.RunAsync(BluetoothTransport.OpenAsync, _status, null, ct));
+        // tests only: GNUBOX_TEST_TCP=127.0.0.1:7777 serves a simulated phone over TCP instead of Bluetooth
+        var test = Environment.GetEnvironmentVariable("GNUBOX_TEST_TCP");
+        var rewrite = (Environment.GetEnvironmentVariable("GNUBOX_TEST_REWRITE") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Split('=', 2)).Where(x => x.Length == 2).ToDictionary(x => x[0], x => x[1]);
+        Func<CancellationToken, Task<ITransport>> open = test != null ? c => TcpTestTransport.AcceptAsync(test, c) : BluetoothTransport.OpenAsync;
+        _task = Task.Run(() => Runner.RunAsync(open, _status, rewrite, ct));
         UpdateStateView();
     }
 
@@ -235,6 +291,7 @@ sealed class MainForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        SizeBottom();
         if (_autostart || _settings.StartSharingOnOpen) StartSharing();
         if (_autostart) BeginInvoke((Action)Hide);                       // started with Windows: straight to the tray
     }
@@ -299,6 +356,7 @@ sealed class MainForm : Form
             _log.AppendText(sb.ToString());
         }
         UpdateStateView();
+        if (!_bottom.Panel2Collapsed && Visible && WindowState != FormWindowState.Minimized) _requests.UpdateView(false);
     }
 
     void UpdateStateView()
@@ -328,11 +386,12 @@ sealed class MainForm : Form
         {
             double down = (_status.Tx - _last.tx) / dt / 1024, up = (_status.Rx - _last.rx) / dt / 1024;
             _last = (now, _status.Rx, _status.Tx);
+            if (running) _graph.Add(down, up);
             if (running && st is LinkState.Up or LinkState.Negotiating)
             {
                 int n = _status.Connections;
-                var s = $"Down {down:0.0} kB/s   Up {up:0.0} kB/s   |   {n} connection{(n == 1 ? "" : "s")}   |   " +
-                        $"{Mb(_status.Tx)} down, {Mb(_status.Rx)} up";
+                var s = $"Down {down:0.0} kB/s (peak {_graph.PeakDown:0.0})   Up {up:0.0} kB/s (peak {_graph.PeakUp:0.0})   |   " +
+                        $"{n} connection{(n == 1 ? "" : "s")}   |   {Mb(_status.Tx)} down, {Mb(_status.Rx)} up";
                 if (_status.Since is { } since) s += $"   |   connected {(DateTime.Now - since):h\\:mm\\:ss}";
                 _stats.Text = s;
                 tip += $" {down:0.0} kB/s";

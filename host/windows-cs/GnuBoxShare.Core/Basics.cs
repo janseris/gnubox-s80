@@ -27,6 +27,8 @@ public sealed class Status
     public void AddRx(int n) => Interlocked.Add(ref _rx, n);
     public void AddTx(int n) => Interlocked.Add(ref _tx, n);
     public volatile int Connections;
+    /// <summary>The requests list; the window keeps one across Start/Stop.</summary>
+    public Traffic Traffic { get; set; } = new();
     long _sinceTicks;
     public DateTime? Since
     {

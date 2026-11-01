@@ -776,6 +776,9 @@ class TcpConn:
                 self.send_seg(F_ACK)
         self.flush_to_server()
         self.pump()
+        # the server closed first: our FIN was acked earlier, now the phone's FIN has come
+        if self.state != "closed" and self.fin_sent and self.peer_fin and self.snd_una == self.snd_nxt:
+            self.close(None)
 
     def on_ack(self, ack):
         acked = (ack - self.snd_una) & 0xFFFFFFFF

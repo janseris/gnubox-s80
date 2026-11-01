@@ -7,7 +7,19 @@ Bluetooth *Serial Port* service (no COM port), runs a PPP server and a user-spac
 
 Extras over the Python version: follows Windows' **light/dark mode**, sits in the **tray**
 (the dot on the icon shows the state: grey stopped, orange waiting, green sharing, red
-problem), only one copy runs (starting it again shows the window), no Python needed.
+problem), only one copy runs (starting it again shows the window), no Python needed, and:
+
+- **Speed graph:** download (blue, filled) and upload (orange) per second, live. Dashed lines
+  are the peaks; the stats line shows them too ("peak" = the best one-second rate since
+  Start sharing). Hover over the graph for the exact time and speeds. Right-click: show the
+  last 1, 2, 5, 15 minutes or 1 hour; reset the peaks; clear.
+- **The phone's requests** (tick *Show the phone's requests*): every HTTP request with
+  method, status, size, time, URL, content type and server; click one for the details
+  (timing, bytes, request and response headers). HTTPS is encrypted, so for it only the
+  server name (if the phone sends it) and the amount of data are shown. Also listed: other
+  TCP connections, UDP, and DNS lookups (*Hide DNS* is on by default). Filter box, *Clear*,
+  right-click to copy the URL or the details. The list keeps the last 3000 entries and stays
+  across Stop/Start.
 
 ## Run it
 
@@ -42,9 +54,12 @@ Or open `GnuBoxShare.slnx` in Visual Studio 2026. Without the runtime on the tar
 
 | Project | What |
 |---|---|
-| `GnuBoxShare.Core` (net10.0) | PPP (`Ppp.cs`: HDLC, LCP, PAP, IPCP), NAT (`Nat.cs`: TCP, UDP, DNS, ping), the event loop and reconnect (`Engine.cs`), helpers (`Basics.cs`). No Windows code, so it runs and is tested on Linux. |
-| `GnuBoxShare` (net10.0-windows, WinForms) | the window and tray (`MainForm.cs`), single instance (`Program.cs`), Bluetooth (`BluetoothTransport.cs`: Winsock `AF_BTH` RFCOMM socket + `WSASetService` SDP record, P/Invoke to `ws2_32`). |
-| `GnuBoxShare.TestServer` (net10.0 console) | the core over TCP for tests: `dotnet run -- 127.0.0.1:7777 -v`; `../windows/test/phone_sim.py` plays the phone. |
+| `GnuBoxShare.Core` (net10.0) | PPP (`Ppp.cs`: HDLC, LCP, PAP, IPCP), NAT (`Nat.cs`: TCP, UDP, DNS, ping), the requests list (`Traffic.cs`: HTTP/1.x parser incl. keep-alive and chunked, TLS server name), the event loop and reconnect (`Engine.cs`), helpers (`Basics.cs`). No Windows code, so it runs and is tested on Linux. |
+| `GnuBoxShare` (net10.0-windows, WinForms) | the window and tray (`MainForm.cs`), speed graph (`SpeedGraph.cs`), requests pane (`RequestsPanel.cs`), single instance (`Program.cs`), Bluetooth (`BluetoothTransport.cs`: Winsock `AF_BTH` RFCOMM socket + `WSASetService` SDP record, P/Invoke to `ws2_32`). |
+| `GnuBoxShare.TestServer` (net10.0 console) | the core over TCP for tests: `dotnet run -- 127.0.0.1:7777 -v -r` (`-r` prints every finished request); `../windows/test/phone_sim.py` plays the phone. |
+
+For tests the window itself can serve a simulated phone over TCP instead of Bluetooth:
+`GNUBOX_TEST_TCP=127.0.0.1:7777` (and `GNUBOX_TEST_REWRITE=10.99.0.50=127.0.0.1`).
 
 ## Tested
 
@@ -52,7 +67,13 @@ Or open `GnuBoxShare.slnx` in Visual Studio 2026. Without the runtime on the tar
   TUN): the same tests as the Python version, all passed (5 MB down/up identical, 10 parallel
   downloads, DNS A/AAAA/NXDOMAIN, refused port, 40 kB/s throttled link, hang-up and
   reconnect).
-- Window under Wine: opens, layout correct.
+- Window under Wine (1.1), against the simulated phone at 40 kB/s: the graph, peaks and hover;
+  the requests list with a 1 MB download, HTTP keep-alive (3 requests on one connection,
+  one chunked), HEAD, 501, POST upload in progress, HTTPS with the server name
+  (`secure.example.org`), raw TCP; the details pane. Requests recorded correctly also by the
+  test server: DNS A / IPv6 / not found / cached, refused port.
+- 1.1 also fixes connections the server closed first staying in the list (and the
+  connection count) until a 10-minute idle timeout (fixed in the Python version too).
 - **Not yet tested on Windows: the window, the tray and the real Bluetooth with the 9300.**
   The Bluetooth calls and structure sizes are the same as in the Python version, which works.
 

@@ -23,9 +23,21 @@ public sealed class Nat
     readonly Dictionary<(int sport, uint dst, int dport), TcpConn> _tcp = new();
     readonly Dictionary<(int sport, uint dst, int dport), UdpFlow> _udp = new();
     readonly Dictionary<string, (DateTime until, IPAddress[]? addrs)> _dnsCache = new();
+    readonly Dictionary<uint, string> _names = new();         // address -> the name the phone looked up
+    internal readonly Traffic? Traffic;
+    int _connNo;
     public int Connections => _tcp.Count;
 
-    public Nat(INatHost host, Dictionary<string, string> rewrite) { Host = host; Rewrite = rewrite; }
+    public Nat(INatHost host, Dictionary<string, string> rewrite, Traffic? traffic = null)
+    {
+        Host = host; Rewrite = rewrite; Traffic = traffic;
+    }
+
+    internal int NextConnNo() => ++_connNo;
+
+    /// <summary>The name the phone looked up for this address, else the address.</summary>
+    internal string NameOf(byte[] addr) =>
+        _names.TryGetValue(BinaryPrimitives.ReadUInt32BigEndian(addr), out var n) ? n : Ip.Str(addr);
 
     internal IPAddress RealAddress(byte[] dst)
     {
@@ -104,8 +116,13 @@ public sealed class Nat
         ushort qtype = BinaryPrimitives.ReadUInt16BigEndian(query.AsSpan(i));
         var question = query[12..(i + 4)];
         string name = string.Join(".", labels);
+        var entry = Traffic?.Add(new RequestInfo
+        {
+            Kind = RequestKind.Dns, Method = "DNS", Url = name + (qtype == 1 ? "" : qtype == 28 ? "  (IPv6)" : $"  (type {qtype})"),
+            Remote = Ip.Str(dst) + ":53", Up = query.Length,
+        });
 
-        void Answer(IPAddress[]? addrs)
+        void Answer(IPAddress[]? addrs, bool cached)
         {
             // addrs null = the name doesn't exist; only A records are given (IPv4 link)
             var list = addrs == null || qtype is not (1 or 255) ? new List<IPAddress>() : addrs.Take(8).ToList();
@@ -123,10 +140,21 @@ public sealed class Nat
                 ms.Write(new byte[] { 0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4 });
                 ms.Write(a.GetAddressBytes());
             }
+            if (addrs != null)
+                foreach (var a in addrs) _names[BinaryPrimitives.ReadUInt32BigEndian(a.GetAddressBytes())] = name;
             Host.SendIp(Ip.Udp(dst, 53, Ip.Phone, sport, ms.ToArray()));
+            if (entry != null && Traffic != null)
+            {
+                entry.Down = ms.Length;
+                entry.FirstByte = DateTime.Now;
+                entry.Status = addrs == null ? "not found" : list.Count > 0 ? string.Join(", ", list.Take(3)) + (list.Count > 3 ? ", ..." : "")
+                    : qtype == 28 ? "no IPv6 (IPv4 link)" : "empty";
+                entry.ResponseHeaders = addrs == null ? "" : string.Join("\r\n", addrs.Select(a => a.ToString()));
+                Traffic.Complete(entry, cached ? "answered from the cache" : null);
+            }
         }
 
-        if (_dnsCache.TryGetValue(name, out var c) && c.until > DateTime.UtcNow) { Answer(c.addrs); return; }
+        if (_dnsCache.TryGetValue(name, out var c) && c.until > DateTime.UtcNow) { Answer(c.addrs, true); return; }
         _ = Task.Run(async () =>
         {
             IPAddress[]? addrs;
@@ -136,7 +164,7 @@ public sealed class Nat
                 addrs = all.Where(a => a.AddressFamily == AddressFamily.InterNetwork).Distinct().ToArray();
             }
             catch { addrs = null; }
-            Host.Post(() => { _dnsCache[name] = (DateTime.UtcNow.AddSeconds(60), addrs); Answer(addrs); });
+            Host.Post(() => { _dnsCache[name] = (DateTime.UtcNow.AddSeconds(60), addrs); Answer(addrs, false); });
         });
     }
 
@@ -200,11 +228,16 @@ sealed class UdpFlow
     readonly IPEndPoint _remote;
     public DateTime Last = DateTime.UtcNow;
     bool _closed;
+    readonly RequestInfo? _entry;
 
     public UdpFlow(Nat nat, int sport, byte[] dst, int dport)
     {
         _nat = nat; _sport = sport; _dst = dst; _dport = dport;
         _remote = new IPEndPoint(nat.RealAddress(dst), dport);
+        _entry = nat.Traffic?.Add(new RequestInfo
+        {
+            Kind = RequestKind.Udp, Method = "UDP", Url = nat.NameOf(dst) + ":" + dport, Remote = Ip.Str(dst) + ":" + dport,
+        });
         _sock.Bind(new IPEndPoint(IPAddress.Any, 0));
         _ = ReceiveLoop();
     }
@@ -212,6 +245,7 @@ sealed class UdpFlow
     public void Send(byte[] data)
     {
         Last = DateTime.UtcNow;
+        if (_entry != null) { _entry.Up += data.Length; _entry.Changed(); }
         try { _sock.SendTo(data, _remote); } catch (SocketException) { }
     }
 
@@ -224,11 +258,21 @@ sealed class UdpFlow
             try { r = await _sock.ReceiveFromAsync(buf, SocketFlags.None, new IPEndPoint(IPAddress.Any, 0)); }
             catch { if (_closed) return; continue; }
             var data = buf.AsSpan(0, r.ReceivedBytes).ToArray();
-            _nat.Host.Post(() => { Last = DateTime.UtcNow; _nat.Host.SendIp(Ip.Udp(_dst, _dport, Ip.Phone, _sport, data)); });
+            _nat.Host.Post(() =>
+            {
+                Last = DateTime.UtcNow;
+                if (_entry != null) { _entry.FirstByte ??= DateTime.Now; _entry.Down += data.Length; _entry.Changed(); }
+                _nat.Host.SendIp(Ip.Udp(_dst, _dport, Ip.Phone, _sport, data));
+            });
         }
     }
 
-    public void Close() { _closed = true; _sock.Dispose(); }
+    public void Close()
+    {
+        _closed = true;
+        _sock.Dispose();
+        if (_entry != null) { if (_entry.Status.Length == 0) _entry.Status = "ended"; _nat.Traffic!.Complete(_entry); }
+    }
 }
 
 /// <summary>One phone TCP connection, ended here and continued as a real socket.</summary>
@@ -259,6 +303,8 @@ sealed class TcpConn
     long _bytesIn, _bytesOut;
     readonly Socket _sock = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     volatile bool _readerMayRead;
+    readonly ConnTraffic? _traffic;
+    bool _connectFailed;
 
     public TcpConn(Nat nat, (int, uint, int) key, byte[] dst, int dport, int sport, uint isnPeer, int peerWin, int peerMss)
     {
@@ -270,6 +316,8 @@ sealed class TcpConn
         _mss = Math.Min(Ip.Mss, peerMss > 0 ? peerMss : 536);
         _sock.NoDelay = true;
         var ep = new IPEndPoint(nat.RealAddress(dst), dport);
+        if (nat.Traffic != null)
+            _traffic = new ConnTraffic(nat.Traffic, Ip.Str(dst) + ":" + dport, nat.NameOf(dst), dport, nat.NextConnNo());
         Log.Detail($"TCP open {ep}");
         _ = ConnectAsync(ep);
     }
@@ -305,6 +353,7 @@ sealed class TcpConn
     void Failed()
     {
         if (_state != "connecting") return;
+        _connectFailed = true;
         SendSeg(Ip.Rst | Ip.Ack, seq: _iss);
         Close("connection refused or unreachable");
     }
@@ -328,6 +377,7 @@ sealed class TcpConn
                 _toServer.Append(data);
                 _rcvNxt += (uint)data.Length;
                 _bytesOut += data.Length;
+                _traffic?.FromPhone(data);
             }
             SendSeg(Ip.Ack);                                          // in order, duplicate or out of order
         }
@@ -339,6 +389,8 @@ sealed class TcpConn
         }
         FlushToServer();
         Pump();
+        // the server closed first: our FIN was acked earlier, now the phone's FIN has come
+        if (_state != "closed" && _finSent && _peerFin && _sndUna == _sndNxt) Close(null);
     }
 
     void OnAck(uint ack)
@@ -418,7 +470,7 @@ sealed class TcpConn
     {
         if (_state == "closed") return;
         if (data == null) _serverEof = true;
-        else { _pending.Append(data); _bytesIn += data.Length; _lastActivity = DateTime.UtcNow; }
+        else { _pending.Append(data); _bytesIn += data.Length; _lastActivity = DateTime.UtcNow; _traffic?.FromServer(data); }
         Pump();
     }
 
@@ -471,6 +523,7 @@ sealed class TcpConn
         _state = "closed";
         try { _sock.Dispose(); } catch { }
         _nat.Remove(this);
+        _traffic?.Closed(why, _connectFailed);
         Log.Detail($"TCP closed {Ip.Str(_dst)}:{_dport}  down {_bytesIn} B, up {_bytesOut} B" + (why != null ? $"  ({why})" : ""));
     }
 }

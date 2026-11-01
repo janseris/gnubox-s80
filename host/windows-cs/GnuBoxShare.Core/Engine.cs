@@ -30,7 +30,7 @@ public sealed class Engine : INatHost, IPppLink
     {
         _status = status;
         _ppp = new Ppp(this);
-        _nat = new Nat(this, rewrite);
+        _nat = new Nat(this, rewrite, status.Traffic);
     }
 
     public void Post(Action action) => _events.Writer.TryWrite(action);
