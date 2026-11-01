@@ -13,7 +13,7 @@ import -window root $L/gui1.png
 WID=$(xdotool search --name "GnuBox Share" | head -1); echo "window $WID"
 # press "Start sharing" (keyboard: focus the button via its position)
 eval $(xdotool getwindowgeometry --shell $WID)
-xdotool mousemove 633 101 click 1
+xdotool mousemove 633 75 click 1
 sleep 2
 import -window root $L/gui2.png
 nohup python3 phone_sim.py --rate 40000 > $L/phone.log 2>&1 &
@@ -23,7 +23,7 @@ sleep 9
 import -window root $L/gui3.png
 while pgrep -f "curl -s --max-time 60" >/dev/null; do sleep 1; done
 cmp $L/g.bin www/onemb.bin && echo "download through the GUI-run server: identical"
-xdotool mousemove 633 101 click 1
+xdotool mousemove 633 75 click 1
 sleep 2
 import -window root $L/gui4.png
 cat $L/gui.log | tail -5

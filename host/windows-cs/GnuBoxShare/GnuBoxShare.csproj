@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>GnuBoxShare</AssemblyName>
+    <RootNamespace>GnuBoxShare</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>GnuBox Share</Product>
+    <Description>Internet for the Nokia 9300 over Bluetooth</Description>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
+    <ProjectReference Include="..\GnuBoxShare.Core\GnuBoxShare.Core.csproj" />
+  </ItemGroup>
+</Project>

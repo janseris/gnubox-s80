@@ -52,9 +52,10 @@ Details, with the Symbian source references, are in [`notes/02-mechanism.md`](no
    **Important:** Android stops BlueDUN++ one minute after the screen turns off. Fix it
    once from a PC with USB debugging: `adb shell dumpsys deviceidle whitelist +com.bluedunz`
    (repeat after reinstalling BlueDUN++). `host/adb-bluedun-test.bat` checks this.
-   **PC instead (not tested end to end yet):** on **Windows** open
-   `host/windows/GnuBox Share.bat` (Python; direct Bluetooth, no COM port; setup in
-   [`host/windows/README.md`](host/windows/README.md)); on **Linux** run
+   **PC instead:** on **Windows** run `GnuBoxShare.exe` (C# / .NET 10, tray icon, dark mode;
+   [`host/windows-cs`](host/windows-cs/README.md)) or `host/windows/GnuBox Share.bat`
+   (Python; [`host/windows/README.md`](host/windows/README.md)), both direct Bluetooth, no
+   COM port (tested with the 9300: about 31 kB/s); on **Linux** (not tested end to end yet) run
    `sudo host/gnubox-host.py` (needs `bluez ppp python3-dbus python3-gi` and `nft` or
    `iptables`). Pair the PC with the 9300 first.
 2. Install `gnubox.sis` on the 9300 and start **GnuBox**.
@@ -130,7 +131,7 @@ are listed in [`notes/04-build.md`](notes/04-build.md).
 | `group/` | `bld.inf`, `gnubox.mmp`, resource file |
 | `aif/` | icons (25×20 and 64×50: laptop, Nokia 9300, phone and radio waves; `make_gnubox_icon.py` generates them, see `ICON.md`) and AIF resource |
 | `sis/` | package file and SIS build script |
-| `host/` | PC side: `windows/` (Windows PPP + NAT server over the incoming Bluetooth COM port), Linux BlueZ Profile API script, classic rfcomm script, Android adb test |
+| `host/` | PC side: `windows/` (Windows PPP + NAT server over direct Bluetooth, Python), `windows-cs/` (the same in C# / .NET 10), Linux BlueZ Profile API script, classic rfcomm script, Android adb test |
 | `tools/` | toolchain/SDK setup scripts and patches for Linux |
 | `notes/` | everything found along the way: platform facts, mechanism, hosts, build, open questions, test log |
 | `release/` | prebuilt `.sis` |

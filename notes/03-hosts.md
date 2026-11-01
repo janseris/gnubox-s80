@@ -13,16 +13,20 @@
 - The 9300 uses legacy PIN pairing: in bluetoothctl run `agent on`,
   `discoverable on`, `pairable on`, then `trust`.
 
-## Windows 11 (GnuBox mode: PC) [tested on Linux with a simulated phone; not yet with the 9300]
+## Windows 11 (GnuBox mode: PC) [works with the 9300: 31 kB/s, test log #13]
 - Windows has no usable PPP server on a Bluetooth COM port (incoming direct-cable RAS is gone),
   so `host/windows/gnubox_winshare.py` does it in user space. Transport: **direct Bluetooth**
   (default) = Win32 Winsock `AF_BTH` RFCOMM listening socket + SDP record for the Serial Port
-  class via `WSASetService` (ctypes; what .NET libraries do with P/Invoke), no COM port; or the
-  *incoming* Bluetooth COM port (no public API creates it; the GUI opens the dialog),
+  class via `WSASetService` (ctypes), no COM port (the console script can still use an
+  *incoming* Bluetooth COM port; the GUI dropped it, never needed),
   PPP server (LCP, PAP accept, IPCP 10.64.64.2 / DNS 10.64.64.1, rejects VJ and CCP), and a
   user-space NAT (TCP termination + real sockets, UDP, DNS via Windows' resolver, ping).
-  Python 3 (+ pyserial for the COM-port fallback), no admin rights. GUI: `GnuBox Share.bat`
-  (`gnubox_share.pyw`, Tk). Setup: `host/windows/README.md`.
+  Python 3, no admin rights. GUI: `GnuBox Share.bat` (`gnubox_share.pyw`, Tk).
+  Setup: `host/windows/README.md`.
+- C# / .NET 10 port: `host/windows-cs` (WinForms, follows Windows' dark mode, tray icon, one
+  instance, start with Windows via HKCU Run). Same PPP/NAT logic, Bluetooth via P/Invoke to
+  ws2_32. `GnuBoxShare.exe` is 0.5 MB and needs the .NET 10 Desktop Runtime. Core tested on
+  Linux against the same phone simulator; window checked under Wine.
 - Uses the phone's ACCM (Symbian asks for 0): control bytes are not escaped, ~12% more speed
   on binary data. 37.9 kB/s on a 40 kB/s test link.
 - Older notes: WSL2 can't use the laptop's Bluetooth; an Ubuntu live USB with gnubox-host.py

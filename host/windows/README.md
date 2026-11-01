@@ -5,26 +5,23 @@ Bluetooth, the way BlueDUN++ does on Android. The 9300 side is GnuBox in
 **Other device: PC** mode.
 
 **Start it:** double-click **`GnuBox Share.bat`** (or `gnubox_share.pyw`). Everything is in
-that window.
+that window. There is also a C# / .NET 10 version with a tray icon and dark mode, a single
+`GnuBoxShare.exe` without Python: see [`../windows-cs`](../windows-cs/README.md).
 
 ## How it works
 
-- **Direct Bluetooth (default, nothing to set up in Windows):** the program itself becomes
+- **Direct Bluetooth (nothing to set up in Windows):** the program itself becomes
   a Bluetooth *Serial Port* service. It uses the documented Win32 Winsock Bluetooth API
   (an `AF_BTH` RFCOMM listening socket plus an SDP record registered with `WSASetService`,
   the same calls .NET Bluetooth libraries make with P/Invoke; here through Python `ctypes`).
   GnuBox looks up exactly that service and connects. No COM port, no admin rights.
-- **COM port (fallback):** if direct Bluetooth doesn't work on a PC, Windows' *incoming
-  Bluetooth COM port* does the same job. Windows has no public API to create that port, so
-  the window opens the Windows dialog for it and picks up the new port by itself.
-- On top of either: a PPP server (LCP, PAP, IPCP; the phone gets `10.64.64.2`, gateway and
+- On top of it: a PPP server (LCP, PAP, IPCP; the phone gets `10.64.64.2`, gateway and
   DNS `10.64.64.1`) and a user-space NAT that carries the phone's TCP, UDP, DNS and ping
   through ordinary Windows sockets. No ICS, no drivers, no Windows network settings change.
 
 ## Setup (once)
 
 1. **Python 3** from python.org (tick *Add python.exe to PATH*). Tk comes with it.
-   `pyserial` is only needed for the COM-port fallback; the window offers to install it.
 2. **Pair** the 9300 with the PC (*Pair the phone...* in the window opens Windows'
    Bluetooth settings).
 3. **On the 9300, in GnuBox:** *Device* > choose the PC; *Settings > Other device: PC (pppd)*;
@@ -32,8 +29,7 @@ that window.
 
 ## Every time
 
-1. Open **GnuBox Share**, keep *Bluetooth, direct (no COM port needed)* selected, press
-   **Start sharing**. It shows *Waiting for the phone*.
+1. Open **GnuBox Share**, press **Start sharing**. It shows *Waiting for the phone*.
 2. On the 9300: GnuBox > **Connect**. The window turns green: *Sharing the internet with the
    phone*, with live speed, connections, data used and connected time.
 3. **Stop sharing** or closing the window ends it. If the phone disconnects, it waits for
@@ -43,8 +39,8 @@ Options in the window: *Start sharing when this window opens*, *Start with Windo
 `.bat` in your Startup folder), *Log every connection*. Settings:
 `%APPDATA%\GnuBoxShare\settings.json`.
 
-Console version: `start-winshare.bat` (direct) or `start-winshare.bat COM5`;
-`python gnubox_winshare.py --list` shows the COM ports.
+Console version: `start-winshare.bat`. (It can still serve an incoming Bluetooth COM port,
+`start-winshare.bat COM5`, which needs `pip install pyserial`; not needed in practice.)
 
 ## What to expect
 
@@ -60,7 +56,7 @@ Console version: `start-winshare.bat` (direct) or `start-winshare.bat COM5`;
 - The phone can open connections out; nothing can connect in to the phone.
 - Ping to any address is answered by the program itself (only shows the link works).
 
-## Tested (2026-10-31, on Linux; not yet on Windows with the 9300)
+## Tested
 
 `test/phone_sim.py` plays the phone (LCP with PFC/ACFC, PAP, CCP, IPCP with VJ and zero
 addresses, like Symbian) and connects a Linux TUN interface, so the real Linux TCP/IP stack
@@ -72,13 +68,15 @@ negotiation works. The window (`test/gui_test.sh`, Xvfb): start, status, live sp
 download through it identical, stop. The Win32 structures for direct Bluetooth have the
 sizes Windows x64 expects (SOCKADDR_BTH 30, CSADDR_INFO 40, WSAQUERYSETW 120 bytes).
 
-**Not yet tested: the real Windows Bluetooth (direct and COM port) with the real 9300.**
+**On Windows with the real 9300 (2026-10-31): works.** 1 MB from `localserver` at 31 kB/s,
+256 KB at 28 kB/s (about 1.5 times BlueDUN++). The window (direct Bluetooth) is what was
+used; the COM-port path was never needed and the window no longer offers it.
 
 ## Troubleshooting
 
 - *"Bluetooth socket: error ..." in the log:* Bluetooth is off or there is no adapter.
 - *GnuBox: Bluetooth error at Connect:* GnuBox points at another device (*Device* menu), is
   in Android mode (*Settings > Other device: PC*), or the PC isn't paired.
-- *Direct Bluetooth never shows the phone connecting:* try *COM port instead...* and select
-  the new port.
+- *The phone never connects:* unpair and pair again; in GnuBox check *Device* and
+  *Settings > Other device: PC*.
 - *Connected but no pages:* tick *Log every connection* and look for `TCP open ...` lines.

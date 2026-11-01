@@ -7,3 +7,4 @@ sis/gnubox.sis
 *.zip
 *.7z*
 *.tar.bz2
+host/windows/test/www/

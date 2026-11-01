@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GnuBoxShare.Core/GnuBoxShare.Core.csproj" />
+  <Project Path="GnuBoxShare.TestServer/GnuBoxShare.TestServer.csproj" />
+  <Project Path="GnuBoxShare/GnuBoxShare.csproj" />
+</Solution>
