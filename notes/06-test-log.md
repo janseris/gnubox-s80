@@ -192,3 +192,14 @@ Notes:
   aif/make_gnubox_icon.py, made in another chat). Masks are black where the icon is drawn, like
   the user's other apps (maps9300, instagram9300, mp4player9300); the old GnuBox mask was the
   other way round. To check on the device: icon on the Desk and in the task list.
+
+## #15 GnuBox 2.8: Bluetooth error texts (2026-11-01)
+- After a whole day of use over GnuBox Share (Python), Connect failed every time:
+  stages 1000, 2000, 3100, 4250, 4500, 100, then *Access point chosen* -6003, stage 2000
+  (*Opening Bluetooth link*), *Could not connect -6003*. -6003 = KHCIErrorBase (-6000) - 0x03
+  *Hardware failure*: the phone's own Bluetooth controller, before it even pages the PC.
+  Turning Bluetooth off and on on the 9300 (a few times) fixed it; no phone restart needed.
+- 2.8 names the Bluetooth chip (HCI, -6000 - code), L2CAP (-6300...) and RFCOMM (-6350...)
+  errors in plain words with a hint (e.g. "-6003 (BT hardware failure - turn Bluetooth off
+  and on)"). -6305 was wrongly shown as "service not found"; per bt_sock.h it is
+  KErrHCILinkDisconnection, now "BT: link lost". Error text buffer 64 -> 96 characters.

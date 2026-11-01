@@ -250,7 +250,7 @@ CGnuboxAppUi::~CGnuboxAppUi()
 		RemoveFromStack(iView);
 		delete iView;
 		}
-	delete (TBuf<64>*)Dll::Tls();
+	delete (TBuf<96>*)Dll::Tls();
 	Dll::SetTls(NULL);
 	}
 
@@ -761,7 +761,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.7 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.8 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

@@ -11,7 +11,7 @@ No GnuBox build for Series 80 existed before.
 **Status:** working on a real Nokia 9300 with an Android phone running BlueDUN++. The
 browser loads pages over HTTP and HTTPS, without asking for an access point.
 
-Download the ready-made package: [`release/gnubox-2.7.sis`](release/gnubox-2.7.sis)
+Download the ready-made package: [`release/gnubox-2.8.sis`](release/gnubox-2.8.sis)
 
 ## How it works
 

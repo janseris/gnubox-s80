@@ -1,6 +1,6 @@
 ; gnubox.pkg - GnuBox for Series 80 (Nokia 9300 / 9300i / 9500)
 &EN
-#{"GnuBox"},(0x097764f0),2,7,0
+#{"GnuBox"},(0x097764f0),2,8,0
 ; Series 80 Developer Platform 2.0
 (0x101F8ED2), 0, 0, 0, {"Series80ProductID"}
 

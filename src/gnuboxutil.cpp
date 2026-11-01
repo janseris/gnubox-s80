@@ -68,10 +68,34 @@ static const TText* ErrName(TInt aErr)
 	case -3050: return _S("PPP authentication failed");
 	case -3606: return _S("no route / not ready");
 	case -5120: return _S("DNS: name not found");
-	case -6004: return _S("BT: page timeout (PC not reachable)");
-	case -6005: return _S("BT: authentication failure");
-	case -6016: return _S("BT: connection timeout");
-	case -6305: return _S("BT/SDP: service not found on PC");
+	// Bluetooth chip (HCI) errors: -6000 minus the HCI code (hcierrors.h)
+	case -6002: return _S("BT: no link");
+	case -6003: return _S("BT hardware failure - turn Bluetooth off and on");
+	case -6004: return _S("BT: PC not reachable - in range, Bluetooth on?");
+	case -6005: return _S("BT: authentication failed - pair again");
+	case -6006: return _S("BT: pairing key missing - pair again");
+	case -6008: return _S("BT: connection timed out - out of range?");
+	case -6009: case -6011: return _S("BT: too many connections");
+	case -6012: return _S("BT: not allowed now - turn Bluetooth off and on");
+	case -6013: case -6014: case -6015: return _S("BT: the PC refused the connection");
+	case -6016: return _S("BT: the PC stopped answering");
+	case -6019: return _S("BT: the PC ended the connection");
+	case -6020: return _S("BT: the PC is low on resources");
+	case -6021: return _S("BT: the PC is turning Bluetooth off");
+	case -6022: return _S("BT: ended by the phone");
+	case -6023: return _S("BT: too many attempts - wait a minute");
+	case -6024: return _S("BT: pairing not allowed");
+	case -6031: return _S("BT: unspecified error - turn Bluetooth off and on");
+	case -6034: return _S("BT: link manager timeout");
+	// L2CAP and RFCOMM (bt_sock.h)
+	case -6304: return _S("BT: connect failed");
+	case -6305: return _S("BT: link lost");
+	case -6306: return _S("BT: not connected");
+	case -6310: return _S("BT: the PC disconnected");
+	case -6311: return _S("BT: access denied - pair again");
+	case -6312: return _S("BT: request timed out");
+	case -6354: return _S("BT: no answer on the serial channel");
+	case -6355: return _S("BT: the PC closed the serial channel");
 	default: return _S("");
 		}
 	}
@@ -79,10 +103,10 @@ static const TText* ErrName(TInt aErr)
 const TDesC& ErrText(TInt aErr)
 	{
 	// apps are DLLs on EKA1: no writable static data, keep the buffer in TLS
-	TBuf<64>* buf = (TBuf<64>*)Dll::Tls();
+	TBuf<96>* buf = (TBuf<96>*)Dll::Tls();
 	if (!buf)
 		{
-		buf = new TBuf<64>;
+		buf = new TBuf<96>;
 		if (!buf)
 			return KNullDesC;
 		Dll::SetTls(buf);
