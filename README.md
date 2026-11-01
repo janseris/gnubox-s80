@@ -11,7 +11,7 @@ No GnuBox build for Series 80 existed before.
 **Status:** working on a real Nokia 9300 with an Android phone running BlueDUN++. The
 browser loads pages over HTTP and HTTPS, without asking for an access point.
 
-Download the ready-made package: [`release/gnubox-2.6.sis`](release/gnubox-2.6.sis)
+Download the ready-made package: [`release/gnubox-2.7.sis`](release/gnubox-2.7.sis)
 
 ## How it works
 
@@ -128,7 +128,7 @@ are listed in [`notes/04-build.md`](notes/04-build.md).
 |------|----------|
 | `src/`, `inc/` | app source: UI, connection manager, CommDb records, Bluetooth |
 | `group/` | `bld.inf`, `gnubox.mmp`, resource file |
-| `aif/` | icons (25×20 and 64×50) and AIF resource |
+| `aif/` | icons (25×20 and 64×50: laptop, Nokia 9300, phone and radio waves; `make_gnubox_icon.py` generates them, see `ICON.md`) and AIF resource |
 | `sis/` | package file and SIS build script |
 | `host/` | PC side: `windows/` (Windows PPP + NAT server over the incoming Bluetooth COM port), Linux BlueZ Profile API script, classic rfcomm script, Android adb test |
 | `tools/` | toolchain/SDK setup scripts and patches for Linux |
