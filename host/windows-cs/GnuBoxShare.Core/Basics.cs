@@ -9,8 +9,21 @@ public static class Log
     public static Action<string> Sink = Console.WriteLine;
     public static volatile bool Verbose;
 
-    public static void Info(string text) => Sink(DateTime.Now.ToString("HH:mm:ss") + " " + text);
-    public static void Detail(string text) { if (Verbose) Info(text); }
+    /// <summary>Also gets every line, details included, with milliseconds (the log file).</summary>
+    public static Action<string>? FileSink;
+
+    public static void Info(string text)
+    {
+        var now = DateTime.Now;
+        Sink(now.ToString("HH:mm:ss") + " " + text);
+        FileSink?.Invoke(now.ToString("HH:mm:ss.fff") + " " + text);
+    }
+
+    public static void Detail(string text)
+    {
+        if (Verbose) Info(text);
+        else FileSink?.Invoke(DateTime.Now.ToString("HH:mm:ss.fff") + "   " + text);
+    }
 }
 
 public enum LinkState { Stopped, Waiting, Negotiating, Up, Error }

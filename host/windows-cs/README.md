@@ -30,6 +30,15 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   request's connection. *Test: short send queue* keeps 4 instead of 12 packets waiting for
   Bluetooth, to compare.
 
+- **Log files for analysis** (1.3, on by default, *Save logs for analysis*): in a `logs` folder
+  next to `GnuBoxShare.exe` (or `%LOCALAPPDATA%\GnuBoxShare\logs` if that isn't writable), one
+  set per day, kept 14 days: `gnubox-share-<date>.log` (every log line with milliseconds,
+  connection details included), `speed-<date>.csv` (one row per second while connected; every
+  10 s when idle: speeds, connections, queued bytes, Bluetooth busy, phone window, round trip,
+  window-full / queue-full samples, frame size, test switch), `requests-<date>.jsonl` (every
+  finished request: timing, sizes, status, type, its connection's window and round trip,
+  headers).
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and
