@@ -1,7 +1,7 @@
 #!/bin/sh
 # builds gnubox.sis from the files in the S80 SDK tree
 set -e
-E=${EPOCROOT:-/root/sym/s80_20/}epoc32
+E=${EPOCROOT:-$HOME/sym/s80_20/}epoc32
 D=$(mktemp -d)
 cp "$E/release/armi/urel/gnubox.app" "$E/data/z/system/apps/gnubox/gnubox.rsc" \
    "$E/data/z/system/apps/gnubox/gnubox.aif" "$D/"
