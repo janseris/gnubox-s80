@@ -4,9 +4,28 @@ Internet over Bluetooth for the **Nokia 9300 / 9300i / 9500** (Series 80, Symbia
 The internet comes from an **Android phone** running a Bluetooth dial-up app (BlueDUN++),
 or from a **PC**: Windows (`host/windows`) or Linux running `pppd`. No GSM data or GPRS is used.
 
-GnuBox is a new Series 80 port of the idea behind [gnubox](https://github.com/LukeUsher/gnubox)
-(Mal Minhas, 2002; 6600 version by [Mika Raento](https://mikie.iki.fi/symbian/bt-ap.html)).
-No GnuBox build for Series 80 existed before.
+## Why
+
+The Nokia 9300 has no Wi-Fi, and its Bluetooth stack has no PAN profile, so ordinary
+Bluetooth tethering from a modern phone cannot work. Without this it gets online only through
+a SIM data plan or the USB cable (IP passthrough).
+
+The original [gnubox](https://github.com/LukeUsher/gnubox) (Mal Minhas, 2002, Nokia 7650;
+6600 version by [Mika Raento](https://mikie.iki.fi/symbian/bt-ap.html)) solved this for
+Series 60 phones with a "Bluetooth dial-up" access point. It is no help on the 9300:
+- Series 80 is not binary compatible with Series 60 (different UI framework), and no
+  Series 80 build of gnubox ever existed.
+- It rewrote the phone's own modem and dial-up records, and its call that points Bluetooth at
+  the chosen device was commented out (the 6600 showed a device picker on every connect).
+- It expected Windows RAS (incoming direct-cable dial-up, gone from modern Windows) or Linux
+  `pppd` on the other side; there was nothing for Android.
+
+GnuBox for Series 80 is a new implementation of the same idea: its own access point that apps
+use without asking (the phone's records are left alone), plus hosts that work today. On
+Android it pairs with BlueDUN++. On Windows, GnuBox Share is its own PPP server and NAT, so
+there is no COM port and no Windows network setup. On Linux it uses `pppd`. The maps,
+Instagram viewer and browser apps made for the 9300 then work wherever a phone or PC is
+nearby, and the phone also reaches the PC's own servers (`192.168.137.1`).
 
 **Status:** working on a real Nokia 9300 with an Android phone running BlueDUN++. The
 browser loads pages over HTTP and HTTPS, without asking for an access point.
