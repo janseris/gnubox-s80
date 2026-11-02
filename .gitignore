@@ -8,3 +8,6 @@ sis/gnubox.sis
 *.7z*
 *.tar.bz2
 host/windows/test/www/
+
+# GnuBox Share log files (next to the exe)
+logs/

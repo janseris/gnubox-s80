@@ -14,6 +14,7 @@ sealed class Settings
     public bool Verbose { get; set; }
     public bool ShowRequests { get; set; }
     public bool ShortQueue { get; set; }
+    public bool SaveLogs { get; set; } = true;
     public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
@@ -64,6 +65,9 @@ sealed class MainForm : Form
     readonly CheckBox _chkVerbose = new() { Text = "Log every connection", AutoSize = true };
     readonly CheckBox _chkRequests = new() { Text = "Show the phone's requests", AutoSize = true };
     readonly CheckBox _chkShortQueue = new() { Text = "Test: short send queue", AutoSize = true };
+    readonly CheckBox _chkLogs = new() { Text = "Save logs for analysis", AutoSize = true };
+    readonly LinkLabel _openLogs = new() { Text = "open the logs folder", AutoSize = true, Margin = new Padding(0, 6, 3, 3) };
+    DiagFiles? _files;
     readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
     readonly RequestsPanel _requests = new() { Dock = DockStyle.Fill };
     readonly SplitContainer _bottom = new() { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
@@ -103,6 +107,11 @@ sealed class MainForm : Form
         _graph.SpanChanged += () => { _settings.GraphSeconds = _graph.SpanSeconds; _settings.Save(); };
         _requests.Attach(_traffic);
         _chkRequests.CheckedChanged += (_, _) => ShowRequestsPane(_chkRequests.Checked);
+        _chkLogs.Checked = _settings.SaveLogs;
+        _chkLogs.CheckedChanged += (_, _) => { _settings.SaveLogs = _chkLogs.Checked; _settings.Save(); SetLogFiles(_chkLogs.Checked); };
+        _openLogs.LinkClicked += (_, _) => { if (_files != null) OpenUri(_files.Folder); else Log.Info("tick 'Save logs for analysis' first"); };
+        _traffic.Completed += r => _files?.Request(r);
+        SetLogFiles(_settings.SaveLogs);
         _chkShortQueue.Checked = _settings.ShortQueue;
         _chkShortQueue.CheckedChanged += (_, _) =>
         {
@@ -119,7 +128,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.2 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.3 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -172,7 +181,10 @@ sealed class MainForm : Form
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs });
+        _tips.SetToolTip(_chkLogs, "Writes the log (with every connection), one speed/diagnostics row per second,\n" +
+            "and every request into the 'logs' folder next to GnuBoxShare.exe, one set of files per day\n" +
+            "(kept 14 days). Claude can read them from there to analyse the speed.");
         _tips.SetToolTip(_chkShortQueue, "Keep at most 4 packets (instead of 12) waiting for Bluetooth.\nFor speed tests: compare the speed and the round trip with it on and off.");
         root.Controls.Add(opts);
 
@@ -200,6 +212,38 @@ sealed class MainForm : Form
         root.Controls.Add(_bottom);
 
         Controls.Add(root);
+    }
+
+    /// <summary>The 'logs' folder next to the exe (or in %LOCALAPPDATA% if that isn't writable).</summary>
+    void SetLogFiles(bool on)
+    {
+        if (!on)
+        {
+            if (_files != null) { Log.Info("logs are no longer saved"); Log.FileSink = null; _files.Dispose(); _files = null; }
+            return;
+        }
+        if (_files != null) return;
+        foreach (var dir in new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "logs"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GnuBoxShare", "logs"),
+        })
+        {
+            try
+            {
+                var probe = Path.Combine(dir, ".write-test");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(probe, "");
+                File.Delete(probe);
+                _files = new DiagFiles(dir);
+                _files.Watch(_status);
+                Log.FileSink = _files.Line;
+                Log.Info($"logs are saved in {dir}");
+                return;
+            }
+            catch { }
+        }
+        Log.Info("could not create a logs folder");
     }
 
     void ShowRequestsPane(bool show)
@@ -278,6 +322,9 @@ sealed class MainForm : Form
         if (Running) return;
         _status = new Status { Traffic = _traffic, ShortQueue = _settings.ShortQueue };
         _diagHist.Clear();
+        _files?.Watch(_status);
+        Log.Info($"sharing started: GnuBox Share {Application.ProductVersion.Split('+')[0]}, {Environment.OSVersion}, .NET {Environment.Version}, " +
+                 $"short send queue {(_settings.ShortQueue ? "on" : "off")}");
         _last = (DateTime.UtcNow, 0, 0);
         _graph.ResetPeaks();
         _cts = new CancellationTokenSource();
@@ -337,6 +384,8 @@ sealed class MainForm : Form
         try { _task?.Wait(3000); } catch { }
         _tray.Visible = false;
         _tray.Dispose();
+        Log.FileSink = null;
+        _files?.Dispose();
         base.OnFormClosing(e);
     }
 

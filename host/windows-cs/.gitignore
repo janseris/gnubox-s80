@@ -3,3 +3,5 @@ obj/
 publish/
 # copy of release/GnuBoxShare.exe for running it from here
 /GnuBoxShare.exe
+# GnuBox Share log files
+logs/

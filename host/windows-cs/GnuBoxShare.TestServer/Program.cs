@@ -4,11 +4,20 @@
 using GnuBoxShare;
 
 var addr = args.FirstOrDefault(a => a.Contains(':')) ?? "127.0.0.1:7777";
-var rewrite = args.Where(a => a.Contains('=')).Select(a => a.Split('=', 2)).ToDictionary(p => p[0], p => p[1]);
+var rewrite = args.Where(a => a.Contains('=') && !a.StartsWith("logs=")).Select(a => a.Split('=', 2)).ToDictionary(p => p[0], p => p[1]);
 Log.Verbose = args.Contains("-v");
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 var status = new Status();
+var logDir = args.FirstOrDefault(a => a.StartsWith("logs="))?[5..];         // logs=<folder>: the window's log files
+DiagFiles? files = null;
+if (logDir != null)
+{
+    files = new DiagFiles(logDir);
+    files.Watch(status);
+    Log.FileSink = files.Line;
+    status.Traffic.Completed += r => files.Request(r);
+}
 if (args.Contains("-r"))
     status.Traffic.Completed += r => Console.WriteLine(
         $"REQ #{r.Id} c{r.Conn} {r.Method} {r.Url} | {r.Status} | {r.ContentType} | down {r.Down} up {r.Up} | {r.Ms:0} ms | {r.Remote} | {r.Note}" +
