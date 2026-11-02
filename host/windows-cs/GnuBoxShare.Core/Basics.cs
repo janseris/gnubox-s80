@@ -29,12 +29,56 @@ public sealed class Status
     public volatile int Connections;
     /// <summary>The requests list; the window keeps one across Start/Stop.</summary>
     public Traffic Traffic { get; set; } = new();
+    /// <summary>Link diagnostics for the window (what limits the speed).</summary>
+    public LinkDiag Diag { get; } = new();
+    /// <summary>Test switch: keep fewer packets waiting for Bluetooth (4 instead of 12).</summary>
+    public volatile bool ShortQueue;
     long _sinceTicks;
     public DateTime? Since
     {
         get { var t = Interlocked.Read(ref _sinceTicks); return t == 0 ? null : new DateTime(t); }
         set => Interlocked.Exchange(ref _sinceTicks, value?.Ticks ?? 0);
     }
+}
+
+/// <summary>What limits the speed: counters written by the engine, read by the window.</summary>
+public sealed class LinkDiag
+{
+    long _writeBusyTicks, _ticksData, _ticksWindowFull, _ticksQueueFull;
+    public long WriteBusyTicks => Interlocked.Read(ref _writeBusyTicks);      // Stopwatch ticks spent in Bluetooth send
+    public void AddWriteBusy(long t) => Interlocked.Add(ref _writeBusyTicks, t);
+    /// <summary>50 ms samples while the server side had data for the phone ...</summary>
+    public long TicksData => Interlocked.Read(ref _ticksData);
+    /// <summary>... and of those: the phone's TCP window was full / the Bluetooth queue was full.</summary>
+    public long TicksWindowFull => Interlocked.Read(ref _ticksWindowFull);
+    public long TicksQueueFull => Interlocked.Read(ref _ticksQueueFull);
+    internal void Sample(bool data, bool windowFull, bool queueFull)
+    {
+        if (!data) return;
+        Interlocked.Increment(ref _ticksData);
+        if (windowFull) Interlocked.Increment(ref _ticksWindowFull);
+        if (queueFull) Interlocked.Increment(ref _ticksQueueFull);
+    }
+    public volatile int QueuedBytes;          // HDLC bytes waiting for the Bluetooth send
+    public volatile int RfcommMtu;            // serial channel frame size agreed with the phone (0 = unknown)
+    public volatile int PhoneWindow;          // last TCP window the phone advertised on a busy connection
+    public volatile int PhoneWindowMax;       // largest seen since Start
+    public volatile int RttMs;                // smoothed round trip of data segments (0 = no sample yet)
+    public volatile int RttMinMs;
+    public volatile string Compression = "";  // what compression the phone asked for (we refuse it)
+    internal void Rtt(double ms)
+    {
+        int m = (int)Math.Round(ms);
+        RttMs = RttMs == 0 ? m : (RttMs * 7 + m) / 8;
+        if (RttMinMs == 0 || m < RttMinMs) RttMinMs = m;
+    }
+}
+
+/// <summary>Per TCP connection: the phone's window and the round trip, for the request details.</summary>
+public sealed class TcpStats
+{
+    public volatile int PhoneWindow, PhoneWindowMax, RttMs, RttMinMs, RttSamples;
+    public long TicksData, TicksWindowFull;
 }
 
 /// <summary>A simple growable FIFO of bytes.</summary>

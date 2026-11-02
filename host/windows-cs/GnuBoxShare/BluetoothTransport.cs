@@ -46,6 +46,9 @@ sealed unsafe class BluetoothTransport : ITransport
     [DllImport("ws2_32.dll", SetLastError = true)] static extern int closesocket(IntPtr s);
     [DllImport("ws2_32.dll", SetLastError = true)] static extern int WSASetServiceW(IntPtr qs, int op, uint flags);
     [DllImport("ws2_32.dll")] static extern int WSAGetLastError();
+    [DllImport("ws2_32.dll", SetLastError = true)] static extern int getsockopt(IntPtr s, int level, int optname, byte* optval, ref int optlen);
+    const int SOL_RFCOMM = 3;                                  // ws2bth.h: SOL_RFCOMM = BTHPROTO_RFCOMM
+    const int SO_BTH_MTU = unchecked((int)0x80000007);         // negotiated RFCOMM frame size once connected
 
     IntPtr _listen = InvalidSocket, _client = InvalidSocket;
     readonly List<IntPtr> _mem = new();                  // unmanaged memory the SDP record points into
@@ -55,6 +58,8 @@ sealed unsafe class BluetoothTransport : ITransport
 
     public string Name { get; private set; } = "Bluetooth";
     public string PhoneAddress { get; private set; } = "";
+    /// <summary>RFCOMM frame size agreed with the phone (0 if Windows doesn't say).</summary>
+    public int FrameSize { get; private set; }
 
     IntPtr Alloc(int size) { var p = Marshal.AllocHGlobal(size); new Span<byte>((void*)p, size).Clear(); _mem.Add(p); return p; }
     IntPtr AllocString(string s) { var p = Marshal.StringToHGlobalUni(s); _mem.Add(p); return p; }
@@ -135,7 +140,10 @@ sealed unsafe class BluetoothTransport : ITransport
         _client = h;
         PhoneAddress = BtAddr(((SOCKADDR_BTH*)peer)->btAddr);
         Name = "phone " + PhoneAddress;
-        Log.Info($"Bluetooth: phone {PhoneAddress} connected");
+        uint mtu = 0;
+        int ml = 4;
+        if (getsockopt(_client, SOL_RFCOMM, SO_BTH_MTU, (byte*)&mtu, ref ml) == 0) FrameSize = (int)mtu;
+        Log.Info($"Bluetooth: phone {PhoneAddress} connected" + (FrameSize > 0 ? $", frame size (RFCOMM MTU) {FrameSize} bytes" : ""));
     }
 
     readonly byte[] _readBuf = new byte[16384];

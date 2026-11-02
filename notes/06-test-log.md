@@ -203,3 +203,22 @@ Notes:
   errors in plain words with a hint (e.g. "-6003 (BT hardware failure - turn Bluetooth off
   and on)"). -6305 was wrongly shown as "service not found"; per bt_sock.h it is
   KErrHCILinkDisconnection, now "BT: link lost". Error text buffer 64 -> 96 characters.
+
+## #16 Speed: what limits it? GnuBox Share 1.2 diagnostics (2026-11-02) [to test on the device]
+- Candidates: (1) the phone's TCP receive window, 8 KB by default: at most 8 KB per round
+  trip per connection; 31 kB/s would mean a ~0.26 s round trip; (2) the Bluetooth link itself
+  (radio max ~90 kB/s one way, RFCOMM frame size, the phone's stack); (3) data queued on the PC
+  adding delay; (4) compression (little gain: most traffic is HTTPS or images).
+- The SDK's TCPIP6.PRT (WINS build) has the ini section `tcp` followed by `tcp_mss`,
+  `tcp_recv_buf`, `tcp_send_buf`, ... (also `tcp_winscale`), so GnuBox's *Bigger TCP window*
+  (C:\System\Data\tcpip.ini, [tcp] tcp_recv_buf=32768) uses the right names. Not yet
+  confirmed on the device that the stack reads the C: copy.
+- GnuBox Share 1.2 shows the window the phone advertises (so the setting can be verified
+  directly), the round trip and its minimum, Bluetooth send busy %, the RFCOMM frame size, and
+  a verdict. The simulated phone asks for Stac LZS data compression and VJ header compression.
+- Seen in the simulation: when the link is the limit, our 32 KB in-flight cap per connection
+  puts ~0.8 s of data in front of the link (round trip 855 ms vs 76 ms). With the phone's 8 KB
+  window this doesn't arise; with 32 KB it would add latency for other connections.
+- Test plan: (a) as now: download the 1 MB file, note speed, window, round trip, verdict;
+  (b) GnuBox Settings > Bigger TCP window, restart the phone, connect, same download;
+  (c) *Test: short send queue* on, same download; (d) two downloads at once.

@@ -166,6 +166,11 @@ sealed class RequestsPanel : UserControl
         if (r.End is { } e2 && r.Down > 0 && (e2 - r.Start).TotalSeconds > 0.2)
             sb.AppendLine($"Speed:       {r.Down / 1024.0 / (e2 - r.Start).TotalSeconds:0.0} kB/s down");
         if (r.Note.Length > 0) sb.AppendLine($"Note:        {r.Note}");
+        if (r.Tcp is { } t && (t.PhoneWindowMax > 0 || t.RttSamples > 0))
+        {
+            sb.AppendLine($"TCP:         phone window {t.PhoneWindowMax:N0} B" + (t.TicksData > 0 ? $" (full {100 * t.TicksWindowFull / t.TicksData}% of the time data waited)" : ""));
+            if (t.RttSamples > 0) sb.AppendLine($"             round trip {t.RttMs} ms, min {t.RttMinMs} ms ({t.RttSamples} samples; TCP connection shared by its requests)");
+        }
         switch (r.Kind)
         {
             case RequestKind.Https:

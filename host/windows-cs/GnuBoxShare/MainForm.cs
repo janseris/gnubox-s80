@@ -13,6 +13,7 @@ sealed class Settings
     public bool KeepInTray { get; set; } = true;
     public bool Verbose { get; set; }
     public bool ShowRequests { get; set; }
+    public bool ShortQueue { get; set; }
     public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
@@ -53,12 +54,16 @@ sealed class MainForm : Form
 
     readonly Label _state = new() { AutoSize = true, Font = new Font("Segoe UI", 13f, FontStyle.Bold), Text = "Stopped" };
     readonly Label _stats = new() { AutoSize = true, Font = new Font("Segoe UI", 9.5f) };
+    readonly Label _diag = new() { AutoSize = true, Font = new Font("Segoe UI", 9f) };
+    readonly ToolTip _tips = new() { AutoPopDelay = 30000 };
+    readonly Queue<(DateTime t, long busy, long data, long wf, long qf)> _diagHist = new();
     readonly Button _go = new() { Text = "Start sharing", AutoSize = true, MinimumSize = new Size(150, 34) };
     readonly CheckBox _chkAuto = new() { Text = "Start sharing when GnuBox Share opens", AutoSize = true };
     readonly CheckBox _chkBoot = new() { Text = "Start with Windows (in the tray)", AutoSize = true };
     readonly CheckBox _chkTray = new() { Text = "Keep running in the tray when the window is closed", AutoSize = true };
     readonly CheckBox _chkVerbose = new() { Text = "Log every connection", AutoSize = true };
     readonly CheckBox _chkRequests = new() { Text = "Show the phone's requests", AutoSize = true };
+    readonly CheckBox _chkShortQueue = new() { Text = "Test: short send queue", AutoSize = true };
     readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
     readonly RequestsPanel _requests = new() { Dock = DockStyle.Fill };
     readonly SplitContainer _bottom = new() { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
@@ -98,6 +103,13 @@ sealed class MainForm : Form
         _graph.SpanChanged += () => { _settings.GraphSeconds = _graph.SpanSeconds; _settings.Save(); };
         _requests.Attach(_traffic);
         _chkRequests.CheckedChanged += (_, _) => ShowRequestsPane(_chkRequests.Checked);
+        _chkShortQueue.Checked = _settings.ShortQueue;
+        _chkShortQueue.CheckedChanged += (_, _) =>
+        {
+            _settings.ShortQueue = _status.ShortQueue = _chkShortQueue.Checked;
+            _settings.Save();
+            Log.Info(_chkShortQueue.Checked ? "test: short send queue (4 packets)" : "normal send queue (12 packets)");
+        };
         _chkAuto.CheckedChanged += (_, _) => { _settings.StartSharingOnOpen = _chkAuto.Checked; _settings.Save(); };
         _chkTray.CheckedChanged += (_, _) => { _settings.KeepInTray = _chkTray.Checked; _settings.Save(); };
         _chkVerbose.CheckedChanged += (_, _) => { _settings.Verbose = Log.Verbose = _chkVerbose.Checked; _settings.Save(); };
@@ -107,7 +119,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.1 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.2 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -115,8 +127,8 @@ sealed class MainForm : Form
     // ---------------------------------------------------------------- layout
     void BuildLayout()
     {
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7 };
-        for (int i = 0; i < 3; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 8 };
+        for (int i = 0; i < 4; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));         // speed graph
         for (int i = 0; i < 2; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -145,13 +157,23 @@ sealed class MainForm : Form
         stateRow.Controls.Add(_state, 0, 0);
         stateRow.Controls.Add(_go, 1, 0);
         root.Controls.Add(stateRow);
-        _stats.Margin = new Padding(6, 2, 3, 6);
+        _stats.Margin = new Padding(6, 2, 3, 2);
         root.Controls.Add(_stats);
+        _diag.Margin = new Padding(6, 0, 3, 6);
+        _tips.SetToolTip(_diag,
+            "Phone TCP window: how much the phone accepts before it must acknowledge (Symbian default 8 KB;\n" +
+            "GnuBox Settings > Bigger TCP window raises it to 32 KB after a phone restart).\n" +
+            "Full: share of the time data was waiting here only because that window was full.\n" +
+            "Round trip: data sent -> phone's acknowledgement. Far above its minimum = data queues in front of Bluetooth.\n" +
+            "Bluetooth busy: share of the time Windows' Bluetooth send was blocked (the link was full).\n" +
+            "Frame: the serial channel (RFCOMM) frame size agreed with the phone.");
+        root.Controls.Add(_diag);
         root.Controls.Add(_graph);
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue });
+        _tips.SetToolTip(_chkShortQueue, "Keep at most 4 packets (instead of 12) waiting for Bluetooth.\nFor speed tests: compare the speed and the round trip with it on and off.");
         root.Controls.Add(opts);
 
         // phone steps
@@ -254,7 +276,8 @@ sealed class MainForm : Form
     void StartSharing()
     {
         if (Running) return;
-        _status = new Status { Traffic = _traffic };
+        _status = new Status { Traffic = _traffic, ShortQueue = _settings.ShortQueue };
+        _diagHist.Clear();
         _last = (DateTime.UtcNow, 0, 0);
         _graph.ResetPeaks();
         _cts = new CancellationTokenSource();
@@ -397,6 +420,7 @@ sealed class MainForm : Form
                 tip += $" {down:0.0} kB/s";
             }
             else _stats.Text = running ? $"Bluetooth: {_status.Where}" : "";
+            _diag.Text = running && st == LinkState.Up ? DiagText(down) : "";
             _tray.Text = tip.Length > 63 ? tip[..63] : tip;
         }
         if (st != _lastState)
@@ -406,6 +430,44 @@ sealed class MainForm : Form
                 _tray.ShowBalloonTip(3000, "GnuBox Share", "The Nokia 9300 is connected.", ToolTipIcon.Info);
             _lastState = st;
         }
+    }
+
+    /// <summary>The diagnostics line: what limits the speed, over the last ~5 seconds.</summary>
+    string DiagText(double downKBs)
+    {
+        var d = _status.Diag;
+        var now = DateTime.UtcNow;
+        _diagHist.Enqueue((now, d.WriteBusyTicks, d.TicksData, d.TicksWindowFull, d.TicksQueueFull));
+        while (_diagHist.Count > 6) _diagHist.Dequeue();
+        var o = _diagHist.Peek();
+        double secs = (now - o.t).TotalSeconds;
+        long data = d.TicksData - o.data;
+        int busy = secs > 0.5 ? (int)Math.Min(100, 100.0 * (d.WriteBusyTicks - o.busy) / System.Diagnostics.Stopwatch.Frequency / secs) : 0;
+        int wfull = data > 0 ? (int)(100 * (d.TicksWindowFull - o.wf) / data) : 0;
+        int qfull = data > 0 ? (int)(100 * (d.TicksQueueFull - o.qf) / data) : 0;
+        static string Kb(int b) => b >= 1024 ? $"{b / 1024.0:0.#} KB" : $"{b} B";
+
+        var parts = new List<string>();
+        if (d.PhoneWindowMax > 0) parts.Add($"phone TCP window {Kb(d.PhoneWindowMax)}" + (data > 0 ? $" (full {wfull}%)" : ""));
+        if (d.RttMs > 0) parts.Add($"round trip {d.RttMs} ms (min {d.RttMinMs})");
+        parts.Add($"Bluetooth busy {busy}%" + (qfull > 0 ? $", queue full {qfull}%" : ""));
+        if (d.RfcommMtu > 0) parts.Add($"frame {d.RfcommMtu} B");
+        string line = "Link: " + string.Join("   ·   ", parts);
+
+        string verdict = "";
+        if (downKBs >= 3 && data >= 20)                 // only while a download is running
+        {
+            if (wfull >= 50)
+                verdict = d.PhoneWindowMax <= 8192
+                    ? "Limit: the phone's 8 KB TCP window. Try GnuBox Settings > Bigger TCP window (then restart the phone)."
+                    : "Limit: the phone's TCP window.";
+            else if (busy >= 70 || qfull >= 50 || (d.RttMinMs > 0 && d.RttMs > 2 * d.RttMinMs + 100))
+                verdict = "Limit: the Bluetooth link itself (data waits in front of it).";
+            else
+                verdict = "Limit: not the link - the server or the phone app is slower.";
+        }
+        if (d.Compression.Length > 0) line += "\nThe phone asks for " + d.Compression + " (refused).";
+        return verdict.Length > 0 ? line + "\n" + verdict : line;
     }
 
     static string Mb(long b) => b >= 1048576 ? $"{b / 1048576.0:0.0} MB" : $"{b / 1024} KB";

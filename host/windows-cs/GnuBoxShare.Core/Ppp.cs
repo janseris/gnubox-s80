@@ -92,6 +92,23 @@ public sealed class Ppp
     bool _passive;
 
     public bool IpUp { get; private set; }
+    /// <summary>Called with a plain description when the phone asks for compression (we refuse it).</summary>
+    public Action<string>? CompressionAsked;
+    readonly SortedSet<string> _compAsked = new();
+
+    void NoteCompression(string what)
+    {
+        if (!_compAsked.Add(what)) return;
+        Log.Info("PPP: the phone asks for " + what + " (not supported here, so it is refused)");
+        CompressionAsked?.Invoke(string.Join(", ", _compAsked));
+    }
+
+    static string CcpName(byte t) => t switch
+    {
+        1 => "Predictor-1", 2 => "Predictor-2", 3 => "Puddle-Jumper", 16 => "HP PPC", 17 => "Stac LZS",
+        18 => "Microsoft PPC/PPE", 19 => "Gandalf FZA", 20 => "V.42bis", 21 => "BSD-Compress",
+        23 => "LZS-DCP", 24 => "Deflate (draft)", 26 => "Deflate", 27 => "V.44", _ => $"type {t}",
+    };
 
     public Ppp(IPppLink link) { _link = link; }
 
@@ -185,6 +202,9 @@ public sealed class Ppp
             case Ipcp: OnIpcp(s); break;
             case Pap: OnPap(s); break;
             default:
+                if (proto == 0x80FD && Header(s, out var ccode, out _, out var cbody) && ccode == 1)
+                    foreach (var (t, _) in ParseOpts(cbody))
+                        NoteCompression("data compression " + CcpName(t));
                 if (_lcpOpen)                                               // CCP, IPv6CP...: Protocol-Reject
                 {
                     Log.Detail($"PPP: rejecting protocol 0x{proto:x4}");
@@ -282,7 +302,11 @@ public sealed class Ppp
                 {
                     if (t == 3) { if (!v.AsSpan().SequenceEqual(Ip.Phone)) nak.Add((t, Ip.Phone)); }
                     else if (t is 129 or 131) { if (!v.AsSpan().SequenceEqual(Ip.Gateway)) nak.Add((t, Ip.Gateway)); }
-                    else rej.Add((t, v));                                   // VJ compression etc.
+                    else
+                    {
+                        if (t == 2) NoteCompression("TCP/IP header compression (Van Jacobson)");
+                        rej.Add((t, v));                                    // VJ compression etc.
+                    }
                 }
                 if (rej.Count > 0) SendCp(Ipcp, 4, ident, Opts(rej.ToArray()));
                 else if (nak.Count > 0) SendCp(Ipcp, 3, ident, Opts(nak.ToArray()));

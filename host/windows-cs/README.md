@@ -21,6 +21,15 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   right-click to copy the URL or the details. The list keeps the last 3000 entries and stays
   across Stop/Start.
 
+- **What limits the speed** (1.2): a *Link* line under the speed shows the phone's TCP window
+  (and how often it was full), the round trip (and its minimum), how busy Windows' Bluetooth
+  send was, and the serial frame size agreed with the phone. While a download runs, a verdict
+  says which one is the limit: the phone's 8 KB TCP window (then try GnuBox *Settings > Bigger
+  TCP window* and restart the phone), the Bluetooth link itself, or neither. The log also says
+  which compression the phone asks for. Request details show the window and round trip of that
+  request's connection. *Test: short send queue* keeps 4 instead of 12 packets waiting for
+  Bluetooth, to compare.
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and
@@ -72,6 +81,10 @@ For tests the window itself can serve a simulated phone over TCP instead of Blue
   one chunked), HEAD, 501, POST upload in progress, HTTPS with the server name
   (`secure.example.org`), raw TCP; the details pane. Requests recorded correctly also by the
   test server: DNS A / IPv6 / not found / cached, refused port.
+- 1.2 diagnostics against the simulated phone at 40 kB/s: a normal download is reported as
+  link-limited (round trip 855 ms against a 76 ms minimum, window never full); a download with
+  a tiny receive window is reported as window-limited (window full 100%, round trip at its
+  minimum). "Bluetooth busy" can't be checked there (the test link never blocks the send).
 - 1.1 also fixes connections the server closed first staying in the list (and the
   connection count) until a 10-minute idle timeout (fixed in the Python version too).
 - **Not yet tested on Windows: the window, the tray and the real Bluetooth with the 9300.**

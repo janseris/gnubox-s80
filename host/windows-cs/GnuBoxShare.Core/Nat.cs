@@ -205,10 +205,19 @@ public sealed class Nat
         c.OnSegment(seq, ack, flags, win, data);
     }
 
+    /// <summary>Set by the engine: link diagnostics and whether the Bluetooth queue is full.</summary>
+    internal LinkDiag? Diag;
+
     public void Tick()
     {
         var now = DateTime.UtcNow;
-        foreach (var c in _tcp.Values.ToList()) c.Tick(now);
+        bool data = false, windowFull = false;
+        foreach (var c in _tcp.Values.ToList())
+        {
+            c.Tick(now);
+            if (c.HasDataWaiting(out bool wf)) { data = true; windowFull |= wf; }
+        }
+        Diag?.Sample(data, windowFull, !Host.LinkHasRoom);
         foreach (var (k, u) in _udp.ToList())
             if ((now - u.Last).TotalSeconds > 60) { u.Close(); _udp.Remove(k); }
     }
@@ -305,6 +314,9 @@ sealed class TcpConn
     volatile bool _readerMayRead;
     readonly ConnTraffic? _traffic;
     bool _connectFailed;
+    public readonly TcpStats Stats = new();
+    uint _timedSeq;                            // RTT: the segment end being timed (Karn: not after a resend)
+    DateTime? _timedAt;
 
     public TcpConn(Nat nat, (int, uint, int) key, byte[] dst, int dport, int sport, uint isnPeer, int peerWin, int peerMss)
     {
@@ -317,7 +329,7 @@ sealed class TcpConn
         _sock.NoDelay = true;
         var ep = new IPEndPoint(nat.RealAddress(dst), dport);
         if (nat.Traffic != null)
-            _traffic = new ConnTraffic(nat.Traffic, Ip.Str(dst) + ":" + dport, nat.NameOf(dst), dport, nat.NextConnNo());
+            _traffic = new ConnTraffic(nat.Traffic, Ip.Str(dst) + ":" + dport, nat.NameOf(dst), dport, nat.NextConnNo(), Stats);
         Log.Detail($"TCP open {ep}");
         _ = ConnectAsync(ep);
     }
@@ -362,6 +374,13 @@ sealed class TcpConn
     {
         _lastActivity = DateTime.UtcNow;
         _peerWin = win;
+        Stats.PhoneWindow = win;
+        if (win > Stats.PhoneWindowMax) Stats.PhoneWindowMax = win;
+        if (_nat.Diag is { } d && (_pending.Count > 0 || _sndNxt != _sndUna))
+        {
+            d.PhoneWindow = win;
+            if (win > d.PhoneWindowMax) d.PhoneWindowMax = win;
+        }
         if ((flags & Ip.Rst) != 0) { Close("reset by the phone"); return; }
         if ((flags & Ip.Syn) != 0)                                    // retransmitted SYN
         {
@@ -408,6 +427,16 @@ sealed class TcpConn
         }
         _unacked.Discard((int)Math.Min(acked, (uint)_unacked.Count));
         _sndUna += acked;
+        if (_timedAt is { } t0 && (int)(_sndUna - _timedSeq) >= 0)
+        {
+            double ms = (DateTime.UtcNow - t0).TotalMilliseconds;
+            _timedAt = null;
+            int m = (int)Math.Round(ms);
+            Stats.RttMs = Stats.RttSamples == 0 ? m : (Stats.RttMs * 7 + m) / 8;
+            if (Stats.RttMinMs == 0 || m < Stats.RttMinMs) Stats.RttMinMs = m;
+            Stats.RttSamples++;
+            _nat.Diag?.Rtt(ms);
+        }
         _rto = 3;
         _rtxAt = _sndNxt != _sndUna ? DateTime.UtcNow.AddSeconds(_rto) : null;
         if (_finSent && _sndUna == _sndNxt && _peerFin) Close(null);
@@ -488,6 +517,7 @@ sealed class TcpConn
             SendSeg(Ip.Ack | Ip.Psh, chunk);
             _unacked.Append(chunk);
             _sndNxt += (uint)n;
+            if (_timedAt == null) { _timedSeq = _sndNxt; _timedAt = DateTime.UtcNow; }
             _rtxAt ??= DateTime.UtcNow.AddSeconds(_rto);
         }
         if (_serverEof && _pending.Count == 0 && !_finSent)
@@ -502,6 +532,19 @@ sealed class TcpConn
             _readerMayRead = true;
     }
 
+    /// <summary>True while data from the server waits here; windowFull: because the phone's
+    /// TCP window is full (not our cap).</summary>
+    public bool HasDataWaiting(out bool windowFull)
+    {
+        windowFull = false;
+        if (_state != "open" || _pending.Count == 0) return false;
+        int inflight = (int)(_sndNxt - _sndUna);
+        windowFull = _peerWin <= SendWindowCap && inflight >= _peerWin - _mss;
+        Stats.TicksData++;
+        if (windowFull) Stats.TicksWindowFull++;
+        return true;
+    }
+
     public void Tick(DateTime now)
     {
         if (_rtxAt is { } at && now >= at)
@@ -510,6 +553,7 @@ sealed class TcpConn
             if (_state == "synrcvd") SendSeg(Ip.Syn | Ip.Ack, seq: _iss, mss: Ip.Mss);
             else if (_unacked.Count > 0) SendSeg(Ip.Ack | Ip.Psh, _unacked.Peek(_mss), seq: _sndUna);
             else if (_finSent) SendSeg(Ip.Fin | Ip.Ack, seq: _sndNxt - 1);
+            _timedAt = null;                                       // no RTT sample from a resent segment
             _rto = Math.Min(_rto * 2, 30);
             _rtxAt = now.AddSeconds(_rto);
         }
@@ -524,6 +568,8 @@ sealed class TcpConn
         try { _sock.Dispose(); } catch { }
         _nat.Remove(this);
         _traffic?.Closed(why, _connectFailed);
-        Log.Detail($"TCP closed {Ip.Str(_dst)}:{_dport}  down {_bytesIn} B, up {_bytesOut} B" + (why != null ? $"  ({why})" : ""));
+        Log.Detail($"TCP closed {Ip.Str(_dst)}:{_dport}  down {_bytesIn} B, up {_bytesOut} B" +
+            (Stats.RttSamples > 0 ? $", phone window {Stats.PhoneWindowMax} B, round trip {Stats.RttMs} ms" : "") +
+            (why != null ? $"  ({why})" : ""));
     }
 }

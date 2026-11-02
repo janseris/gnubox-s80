@@ -25,6 +25,7 @@ public sealed class RequestInfo
     public int Conn;                         // TCP connection number
     public string RequestHeaders = "", ResponseHeaders = "";
     public string Note = "";
+    public TcpStats? Tcp;                    // the TCP connection's window / round trip (null for DNS, UDP)
     public volatile int Version;             // bumped on every change, for the window
     public bool Done => End != null;
     public double? Ms => End is { } e ? (e - Start).TotalMilliseconds : null;
@@ -258,10 +259,14 @@ sealed class ConnTraffic
     MemoryStream? _hello;
     bool _closed, _anyHttp;
 
-    public ConnTraffic(Traffic t, string remote, string host, int port, int conn)
+    readonly TcpStats _stats;
+
+    public ConnTraffic(Traffic t, string remote, string host, int port, int conn, TcpStats stats)
     {
-        _t = t; _remote = remote; _host = host; _port = port; _conn = conn;
+        _t = t; _remote = remote; _host = host; _port = port; _conn = conn; _stats = stats;
     }
+
+    RequestInfo Add(RequestInfo r) { r.Tcp = _stats; return _t.Add(r); }
 
     string HostPort => _host + (_port is 80 or 443 ? "" : ":" + _port);
 
@@ -338,7 +343,7 @@ sealed class ConnTraffic
     {
         _mode = Mode.Tls;
         _hello = new MemoryStream();
-        _entry = _t.Add(new RequestInfo
+        _entry = Add(new RequestInfo
         {
             Kind = RequestKind.Https, Method = "TLS", Url = "https://" + HostPort + "/", Remote = _remote, Conn = _conn,
             Note = "encrypted: only the server is visible",
@@ -348,7 +353,7 @@ sealed class ConnTraffic
     void StartOther()
     {
         _mode = Mode.Other;
-        _entry = _t.Add(new RequestInfo { Kind = RequestKind.Tcp, Method = "TCP", Url = _host + ":" + _port, Remote = _remote, Conn = _conn });
+        _entry = Add(new RequestInfo { Kind = RequestKind.Tcp, Method = "TCP", Url = _host + ":" + _port, Remote = _remote, Conn = _conn });
     }
 
     void StartHttp()
@@ -360,7 +365,7 @@ sealed class ConnTraffic
             {
                 string url = h.Target.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ? h.Target
                     : "http://" + (h.H("Host") is { Length: > 0 } host ? host : HostPort) + h.Target;
-                var r = _t.Add(new RequestInfo
+                var r = Add(new RequestInfo
                 {
                     Kind = RequestKind.Http, Method = h.Method, Url = url, Remote = _remote, Conn = _conn,
                     RequestHeaders = h.Text, Up = h.Size,
@@ -404,7 +409,7 @@ sealed class ConnTraffic
         {
             if (neverConnected)
             {
-                var r = _t.Add(new RequestInfo
+                var r = Add(new RequestInfo
                 {
                     Kind = RequestKind.Tcp, Method = "TCP", Url = _host + ":" + _port, Remote = _remote, Conn = _conn,
                     Status = "could not connect",

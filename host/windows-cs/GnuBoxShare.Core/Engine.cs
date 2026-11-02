@@ -13,6 +13,8 @@ public interface ITransport : IDisposable
     /// <summary>Returns 0 at the end of the stream.</summary>
     ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct);
     ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct);
+    /// <summary>Serial channel frame size agreed with the phone, 0 if unknown.</summary>
+    int FrameSize => 0;
 }
 
 public sealed class Engine : INatHost, IPppLink
@@ -30,18 +32,22 @@ public sealed class Engine : INatHost, IPppLink
     {
         _status = status;
         _ppp = new Ppp(this);
-        _nat = new Nat(this, rewrite, status.Traffic);
+        _nat = new Nat(this, rewrite, status.Traffic) { Diag = status.Diag };
+        _ppp.CompressionAsked = what => status.Diag.Compression = what;
     }
 
     public void Post(Action action) => _events.Writer.TryWrite(action);
-    public bool LinkHasRoom => Volatile.Read(ref _outQueued) <= 12;
+    public bool LinkHasRoom => Volatile.Read(ref _outQueued) <= (_status.ShortQueue ? 4 : 12);
+    int _outBytes;
 
     public void SendIp(byte[] packet) => _ppp.SendIp(packet);
 
     void IPppLink.SendFrame(byte[] frame, bool[] escape)
     {
         Interlocked.Increment(ref _outQueued);
-        _out.Writer.TryWrite(Hdlc.Encode(frame, escape));
+        var enc = Hdlc.Encode(frame, escape);
+        _status.Diag.QueuedBytes = Interlocked.Add(ref _outBytes, enc.Length);
+        _out.Writer.TryWrite(enc);
     }
 
     void IPppLink.OnIp(byte[] packet) => _nat.OnIp(packet);
@@ -87,7 +93,10 @@ public sealed class Engine : INatHost, IPppLink
                         Interlocked.Decrement(ref _outQueued);
                     }
                     var data = ms.ToArray();
+                    _status.Diag.QueuedBytes = Interlocked.Add(ref _outBytes, -data.Length);
+                    long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
                     await t.WriteAsync(data, token);
+                    _status.Diag.AddWriteBusy(System.Diagnostics.Stopwatch.GetTimestamp() - t0);
                     _status.AddTx(data.Length);
                 }
             }
@@ -153,7 +162,9 @@ public sealed class Engine : INatHost, IPppLink
         if (_ppp.IpUp && (DateTime.UtcNow - _lastStats).TotalSeconds > 60)
         {
             _lastStats = DateTime.UtcNow;
-            Log.Info($"{_nat.Connections} connections, {_status.Tx / 1048576.0:0.0} MB to the phone, {_status.Rx / 1048576.0:0.0} MB from the phone");
+            var d = _status.Diag;
+            Log.Info($"{_nat.Connections} connections, {_status.Tx / 1048576.0:0.0} MB to the phone, {_status.Rx / 1048576.0:0.0} MB from the phone" +
+                (d.RttMs > 0 ? $"; phone TCP window {d.PhoneWindowMax} B, round trip {d.RttMs} ms (min {d.RttMinMs})" : ""));
         }
     }
 }
@@ -182,6 +193,7 @@ public static class Runner
                 status.State = LinkState.Waiting;
                 t = await open(ct);
                 status.Where = t.Name;
+                status.Diag.RfcommMtu = t.FrameSize;
                 await new Engine(status, map).RunAsync(t, ct);
             }
             catch (OperationCanceledException) { break; }
@@ -211,7 +223,13 @@ public sealed class TcpTestTransport : ITransport
     readonly NetworkStream _stream;
     public string Name { get; }
 
-    TcpTestTransport(TcpClient c, string name) { _client = c; _stream = c.GetStream(); Name = name; }
+    TcpTestTransport(TcpClient c, string name)
+    {
+        _client = c;
+        c.Client.SendBufferSize = 8192;          // like a Bluetooth socket: a slow link blocks the send
+        _stream = c.GetStream();
+        Name = name;
+    }
 
     public static async Task<ITransport> AcceptAsync(string hostPort, CancellationToken ct)
     {
