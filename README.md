@@ -14,7 +14,7 @@ The original [gnubox](https://github.com/LukeUsher/gnubox) (Mal Minhas, 2002, No
 6600 version by [Mika Raento](https://mikie.iki.fi/symbian/bt-ap.html)) solved this for
 Series 60 phones with a "Bluetooth dial-up" access point. It is no help on the 9300:
 - Series 80 is not binary compatible with Series 60 (different UI framework), and no
-  Series 80 build of gnubox ever existed.
+  Series 80 build of gnubox can be found anywhere.
 - It rewrote the phone's own modem and dial-up records, and its call that points Bluetooth at
   the chosen device was commented out (the 6600 showed a device picker on every connect).
 - It expected Windows RAS (incoming direct-cable dial-up, gone from modern Windows) or Linux
