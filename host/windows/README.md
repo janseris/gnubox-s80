@@ -49,10 +49,10 @@ Console version: `start-winshare.bat`. (It can still serve an incoming Bluetooth
   not escaped because the phone negotiates ACCM 0).
 - DNS goes through Windows' own resolver (hosts file, VPN DNS included). IPv6-only names get
   an empty answer.
-- **The PC itself** (its local servers, e.g. `localserver` on port 8000 or the FileFetch
-  server on 8010) is reachable from the phone as **`10.64.64.1`** or **`192.168.137.1`**: both
-  go to this PC. So apps set up for the USB link (AudioProbe, FileFetch, Instagram9300 with
-  `192.168.137.1:8000`) work unchanged over Bluetooth, even without the USB cable.
+- **The PC itself** (its local servers, e.g. `localserver` on port 8000) is reachable from
+  the phone as **`10.64.64.1`** or **`192.168.137.1`**: both go to this PC. So apps set up for
+  the USB link (e.g. Instagram9300 with `192.168.137.1:8000`) work unchanged over Bluetooth,
+  even without the USB cable.
 - The phone can open connections out; nothing can connect in to the phone.
 - Ping to any address is answered by the program itself (only shows the link works).
 
