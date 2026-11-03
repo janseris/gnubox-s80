@@ -1,0 +1,9 @@
+; nettest.pkg - NetTest for Series 80 (Nokia 9300 / 9300i / 9500)
+&EN
+#{"NetTest"},(0x0A5D10A4),1,0,0
+; Series 80 Developer Platform 2.0
+(0x101F8ED2), 0, 0, 0, {"Series80ProductID"}
+
+"nettest.app"-"!:\system\apps\nettest\nettest.app"
+"nettest.rsc"-"!:\system\apps\nettest\nettest.rsc"
+"nettest.aif"-"!:\system\apps\nettest\nettest.aif"

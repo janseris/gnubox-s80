@@ -1,0 +1,20 @@
+// nettest.mmp - NetTest for Series 80: download test files from the PC over the current
+// connection (GnuBox Bluetooth or USB) with different TCP windows and parallel connections
+TARGET          nettest.app
+TARGETTYPE      app
+UID             0x100039ce 0x0A5D10A4
+TARGETPATH      \system\apps\nettest
+
+SOURCEPATH      ..\src
+SOURCE          nettest.cpp
+
+SOURCEPATH      .
+RESOURCE        nettest.rss
+
+USERINCLUDE     ..\inc
+SYSTEMINCLUDE   \epoc32\include
+
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib eikcoctl.lib
+LIBRARY         eikctl.lib bafl.lib efsrv.lib esock.lib insock.lib
+
+AIF nettest.aif ..\aif nettestaif.rss c16 nettest25.bmp nettest25_mask.bmp nettest64.bmp nettest64_mask.bmp

@@ -1,0 +1,14 @@
+// nettest.hrh - NetTest for Series 80: command ids
+#ifndef NETTEST_HRH
+#define NETTEST_HRH
+
+enum TNetTestCommands
+	{
+	ENtCmdFull = 0x6000,
+	ENtCmdQuick,
+	ENtCmdStop,
+	ENtCmdSend,
+	ENtCmdClear
+	};
+
+#endif

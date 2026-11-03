@@ -1,0 +1,14 @@
+// nettestaif.rss - application information for NetTest
+#include <aiftool.rh>
+
+RESOURCE AIF_DATA
+	{
+	app_uid = 0x0A5D10A4;
+	num_icons = 2;
+	embeddability = KAppNotEmbeddable;
+	newfile = KAppDoesNotSupportNewFile;
+	caption_list =
+		{
+		CAPTION { code = ELangEnglish; caption = "NetTest"; }
+		};
+	}
