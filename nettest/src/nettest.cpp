@@ -401,6 +401,286 @@ void CNtPoster::RunL()
 	}
 
 // ==========================================================================
+// the upload test: does a big POST stall on a kept-open connection? (Maps 9300 saw the second
+// multi-KB POST on a reused connection send one 16 KB send window and then nothing, over GnuBox)
+
+const TInt KNtUpSize = 40960;
+const TInt KNtUpCount = 4;
+const TInt KNtUpTimeoutSec = 30;
+_LIT8(KNtKept8, "kept");
+_LIT8(KNtFresh8, "fresh");
+_LIT(KNtFreshW, "fresh");
+_LIT(KNtKeptW, "kept-open");
+_LIT(KNtAFresh, "a fresh");
+_LIT(KNtTheKept, "the kept-open");
+_LIT(KNtPlusConnect, " (+ connect)");
+
+CNtUpload* CNtUpload::NewL(RSocketServ& aSs, MNtObserver& aObs)
+	{
+	CNtUpload* self = new (ELeave) CNtUpload(aSs, aObs);
+	CleanupStack::PushL(self);
+	self->ConstructL();
+	CleanupStack::Pop(self);
+	return self;
+	}
+
+CNtUpload::CNtUpload(RSocketServ& aSs, MNtObserver& aObs)
+	: CActive(EPriorityStandard), iSs(aSs), iObs(aObs), iState(EIdle)
+	{
+	CActiveScheduler::Add(this);
+	}
+
+void CNtUpload::ConstructL()
+	{
+	iTicker = CPeriodic::NewL(CActive::EPriorityLow);
+	}
+
+CNtUpload::~CNtUpload()
+	{
+	Cancel();
+	CloseSock();
+	if (iTicker)
+		iTicker->Cancel();
+	delete iTicker;
+	delete iPost;
+	}
+
+void CNtUpload::CloseSock()
+	{
+	if (iOpen)
+		{
+		iSock.Close();
+		iOpen = EFalse;
+		}
+	}
+
+void CNtUpload::StartL()
+	{
+	if (iRunning)
+		return;
+	if (!iPost)
+		iPost = HBufC8::NewL(KNtUpSize + 400);
+	iResults.Copy(_L8("NetTest 1.3 upload test: POSTs of 40 KB, 4 on one kept-open connection, then 4 each on a fresh connection\r\n"
+		"connection; POST; result; ms; kB/s; connect ms\r\n"));
+	iRunning = ETrue;
+	iMode = 0;
+	iIndex = 0;
+	iObs.NtLog(_L("Upload test: 4 POSTs of 40 KB on one kept-open connection, then 4 each on a fresh connection."));
+	iTicker->Cancel();
+	iTicker->Start(1000000, 1000000, TCallBack(TickCb, this));
+	Connect();
+	}
+
+void CNtUpload::Stop()
+	{
+	if (!iRunning)
+		return;
+	Cancel();
+	CloseSock();
+	iTicker->Cancel();
+	iRunning = EFalse;
+	iState = EIdle;
+	iObs.NtLog(_L("Upload test stopped."));
+	}
+
+void CNtUpload::Connect()
+	{
+	CloseSock();
+	iConnectMs = 0;
+	TInt err = iSock.Open(iSs, KAfInet, KSockStream, KProtocolInetTcp);
+	if (err != KErrNone)
+		{
+		PostDone(err);
+		return;
+		}
+	iOpen = ETrue;
+	iSock.SetOpt(KSoTcpRecvWinSize, KSolInetTcp, 16384);
+	iSock.SetOpt(KSoTcpSendWinSize, KSolInetTcp, 16384);		// as Maps 9300
+	iAddr.SetAddress(KNtServer);
+	iAddr.SetPort(KNtPort);
+	iPostStart.HomeTime();
+	iLastActivity = iPostStart;
+	iState = EConnecting;
+	iSock.Connect(iAddr, iStatus);
+	SetActive();
+	}
+
+void CNtUpload::SendPost()
+	{
+	TPtr8 p = iPost->Des();
+	p.Format(_L8("POST /results?name=nettest_upload&ext=bin HTTP/1.1\r\nHost: 192.168.137.1:8000\r\n"
+		"X-NetTest-Run: upload %S %d\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n"),
+		iMode ? &(const TDesC8&)KNtFresh8 : &(const TDesC8&)KNtKept8, iIndex + 1, KNtUpSize);
+	TInt start = p.Length();
+	p.SetLength(start + KNtUpSize);
+	TUint8* d = (TUint8*)p.Ptr() + start;
+	for (TInt i = 0; i < KNtUpSize; i++)
+		d[i] = (TUint8)(i * 7 + iIndex);
+	iAnswer.Zero();
+	iPostStart.HomeTime();
+	iLastActivity = iPostStart;
+	TBuf<100> t;
+	t.Format(_L("Upload test: %S connection, POST %d of %d"), iMode ? &(const TDesC&)KNtAFresh : &(const TDesC&)KNtTheKept, iIndex + 1, KNtUpCount);
+	iObs.NtStatus(t, KNullDesC);
+	iState = ESending;
+	iSock.Write(*iPost, iStatus);
+	SetActive();
+	}
+
+void CNtUpload::DoCancel()
+	{
+	switch (iState)
+		{
+	case EConnecting: iSock.CancelConnect(); break;
+	case ESending: iSock.CancelWrite(); break;
+	case EReading: iSock.CancelRecv(); break;
+	default: break;
+		}
+	}
+
+TInt CNtUpload::RunError(TInt aError)
+	{
+	PostDone(aError);
+	return KErrNone;
+	}
+
+void CNtUpload::RunL()
+	{
+	TInt err = iStatus.Int();
+	iLastActivity.HomeTime();
+	switch (iState)
+		{
+	case EConnecting:
+		if (err != KErrNone)
+			{
+			PostDone(err);
+			return;
+			}
+		iConnectMs = MsBetween(iPostStart, iLastActivity);
+		SendPost();
+		break;
+	case ESending:
+		if (err != KErrNone)
+			{
+			PostDone(err);
+			return;
+			}
+		iChunk.Zero();
+		iState = EReading;
+		iSock.RecvOneOrMore(iChunk, 0, iStatus, iLen);
+		SetActive();
+		break;
+	case EReading:
+		{
+		if (err != KErrNone)
+			{
+			PostDone(err);
+			return;
+			}
+		TInt room = iAnswer.MaxLength() - iAnswer.Length();
+		iAnswer.Append(iChunk.Left(room < iChunk.Length() ? room : iChunk.Length()));
+		TInt end = iAnswer.Find(_L8("\r\n\r\n"));
+		if (end >= 0 && iAnswer.Length() >= 12)
+			{
+			if (iAnswer.Mid(9, 3) != _L8("200"))
+				{
+				PostDone(KErrGeneral);
+				return;
+				}
+			if (iAnswer.Find(_L8("saved")) >= 0)
+				{
+				PostDone(KErrNone);
+				return;
+				}
+			}
+		iChunk.Zero();
+		iSock.RecvOneOrMore(iChunk, 0, iStatus, iLen);
+		SetActive();
+		break;
+		}
+	default:
+		break;
+		}
+	}
+
+void CNtUpload::PostDone(TInt aError)
+	{
+	TTime now;
+	now.HomeTime();
+	TInt ms = MsBetween(iPostStart, now);
+	TInt s = aError == KErrNone ? Speed10(KNtUpSize, ms) : 0;
+	TBuf<120> t;
+	if (aError == KErrNone)
+		t.Format(_L("  POST %d (%S connection): 40 KB in %d ms = %d.%d kB/s%S"), iIndex + 1,
+			iMode ? &(const TDesC&)KNtFreshW : &(const TDesC&)KNtKeptW, ms, s / 10, s % 10, iConnectMs ? &(const TDesC&)KNtPlusConnect : &(const TDesC&)KNullDesC);
+	else if (aError == KErrTimedOut)
+		t.Format(_L("  POST %d (%S connection): STALLED - nothing for %d s"), iIndex + 1,
+			iMode ? &(const TDesC&)KNtFreshW : &(const TDesC&)KNtKeptW, KNtUpTimeoutSec);
+	else
+		t.Format(_L("  POST %d (%S connection): error %d after %d ms"), iIndex + 1,
+			iMode ? &(const TDesC&)KNtFreshW : &(const TDesC&)KNtKeptW, aError, ms);
+	iObs.NtLog(t);
+	TBuf8<100> line;
+	line.Format(_L8("%S; %d; %d; %d; %d.%d; %d\r\n"), iMode ? &(const TDesC8&)KNtFresh8 : &(const TDesC8&)KNtKept8,
+		iIndex + 1, aError, ms, s / 10, s % 10, iConnectMs);
+	if (iResults.Length() + line.Length() <= iResults.MaxLength())
+		iResults.Append(line);
+	iConnectMs = 0;
+	if (aError != KErrNone)
+		CloseSock();
+	iState = EIdle;
+	iIndex++;
+	if (iIndex >= KNtUpCount)
+		{
+		if (iMode == 0)
+			{
+			iMode = 1;
+			iIndex = 0;
+			CloseSock();
+			iObs.NtLog(_L("Now 4 POSTs of 40 KB, each on a fresh connection."));
+			Connect();
+			return;
+			}
+		Finish();
+		return;
+		}
+	if (iMode == 1 || !iOpen)
+		Connect();
+	else
+		SendPost();
+	}
+
+void CNtUpload::Finish()
+	{
+	iTicker->Cancel();
+	CloseSock();
+	iRunning = EFalse;
+	iState = EIdle;
+	iObs.NtLog(_L("Upload test finished."));
+	iObs.NtStatus(_L("Upload test finished"), _L("Results: on screen, C:\\Data\\NetTest\\results.txt and on the PC"));
+	if (iEngine)
+		{
+		TRAPD(err, iEngine->PostTextL(iResults));
+		}
+	iObs.NtFinished();
+	}
+
+TInt CNtUpload::TickCb(TAny* aSelf)
+	{
+	CNtUpload* self = static_cast<CNtUpload*>(aSelf);
+	if (!self->iRunning || self->iState == EIdle)
+		return 1;
+	TTime now;
+	now.HomeTime();
+	if (MsBetween(self->iLastActivity, now) > KNtUpTimeoutSec * 1000)
+		{
+		self->Cancel();
+		self->PostDone(KErrTimedOut);
+		}
+	return 1;
+	}
+
+// ==========================================================================
 // the engine: runs the test list
 
 CNtEngine* CNtEngine::NewL(MNtObserver& aObs)
@@ -693,7 +973,7 @@ void CNtEngine::BuildResults(TDes8& aText, TBool /*aForPc*/)
 	TBuf<40> stamp;
 	TRAPD(ignore, iTestStart.FormatL(stamp, _L("%F%Y-%M-%D %H:%T:%S")));
 	TBuf8<200> line;
-	line.Copy(iSmall ? _L8("NetTest 1.2 small-file results, test started ") : _L8("NetTest 1.2 results, test started "));
+	line.Copy(iSmall ? _L8("NetTest 1.3 small-file results, test started ") : _L8("NetTest 1.3 results, test started "));
 	TBuf8<40> stamp8;
 	stamp8.Copy(stamp);
 	line.Append(stamp8);
@@ -738,6 +1018,12 @@ void CNtEngine::WriteResultsFile(const TDesC8& aText)
 	f.Close();
 	}
 
+void CNtEngine::PostTextL(const TDesC8& aText)
+	{
+	WriteResultsFile(aText);
+	iPoster->PostL(aText);
+	}
+
 void CNtEngine::SendResultsL()
 	{
 	HBufC8* text = HBufC8::NewLC(4096);
@@ -766,7 +1052,7 @@ void CNtView::ConstructL(const TRect& aRect)
 	CreateWindowL();
 	iStatus1 = new (ELeave) CEikLabel;
 	iStatus1->SetContainerWindowL(*this);
-	iStatus1->SetTextL(_L("NetTest 1.2"));
+	iStatus1->SetTextL(_L("NetTest 1.3"));
 	iStatus2 = new (ELeave) CEikLabel;
 	iStatus2->SetContainerWindowL(*this);
 	iStatus2->SetTextL(KNullDesC);
@@ -908,16 +1194,20 @@ void CNtAppUi::ConstructL()
 	iView = CNtView::NewL(ClientRect());
 	AddToStackL(iView);
 	iEngine = CNtEngine::NewL(*this);
-	iView->Log(_L("NetTest 1.2: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
+	iUpload = CNtUpload::NewL(iEngine->SocketServ(), *this);
+	iUpload->SetEngine(iEngine);
+	iView->Log(_L("NetTest 1.3: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
 		"once for each of 8 settings: 2 connections with a 8 / 16 / 32 / 64 KB TCP window, 3 connections with "
 		"16 / 32 KB, 1 connection with 16 / 64 KB."));
 	iView->Log(_L("Before: connect GnuBox (or the USB cable), and run the PC's localserver (ota_server.js) "
 		"with the files in localserver\\nettest. Then: Full test (~10-15 min over Bluetooth) or Quick test "
-		"(40 files a run, ~4 min). Small files: 2-50 KB files, connections kept open or new for each file (~3 min)."));
+		"(40 files a run, ~4 min). Small files: 2-50 KB files, connections kept open or new for each file (~3 min). "
+		"Upload test (menu): 8 POSTs of 40 KB, kept-open vs. fresh connections (~1 min)."));
 	}
 
 CNtAppUi::~CNtAppUi()
 	{
+	delete iUpload;
 	delete iEngine;
 	if (iView)
 		{
@@ -945,16 +1235,24 @@ void CNtAppUi::HandleCommandL(TInt aCommand)
 	switch (aCommand)
 		{
 	case ENtCmdFull:
-		iEngine->StartL(KNtMaxFiles, EFalse);
+		if (!iUpload->Running())
+			iEngine->StartL(KNtMaxFiles, EFalse);
 		break;
 	case ENtCmdQuick:
-		iEngine->StartL(40, EFalse);
+		if (!iUpload->Running())
+			iEngine->StartL(40, EFalse);
 		break;
 	case ENtCmdSmall:
-		iEngine->StartL(KNtSmallFiles, ETrue);
+		if (!iUpload->Running())
+			iEngine->StartL(KNtSmallFiles, ETrue);
+		break;
+	case ENtCmdUpload:
+		if (!iEngine->Running())
+			iUpload->StartL();
 		break;
 	case ENtCmdStop:
 		iEngine->Stop();
+		iUpload->Stop();
 		break;
 	case ENtCmdSend:
 		iEngine->SendResultsL();
@@ -963,6 +1261,7 @@ void CNtAppUi::HandleCommandL(TInt aCommand)
 		iView->ClearL();
 		break;
 	case EEikCmdExit:
+		iUpload->Stop();
 		iEngine->Stop();
 		Exit();
 		break;

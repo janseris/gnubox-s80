@@ -39,6 +39,11 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   finished request: timing, sizes, status, type, its connection's window and round trip,
   headers).
 
+- **Log TCP segments** (1.4, off by default): every TCP segment to and from the phone goes into the
+  log file (`seg cN <phone` / `>phone` lines: flags, sequence numbers relative to each side's start,
+  length, window, and GnuBox Share's buffers), plus each new connection's SYN options. For debugging
+  only (many lines).
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and

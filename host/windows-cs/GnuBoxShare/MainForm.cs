@@ -15,6 +15,7 @@ sealed class Settings
     public bool ShowRequests { get; set; }
     public bool ShortQueue { get; set; }
     public bool SaveLogs { get; set; } = true;
+    public bool TraceSegments { get; set; }
     public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
@@ -66,6 +67,7 @@ sealed class MainForm : Form
     readonly CheckBox _chkRequests = new() { Text = "Show the phone's requests", AutoSize = true };
     readonly CheckBox _chkShortQueue = new() { Text = "Test: short send queue", AutoSize = true };
     readonly CheckBox _chkLogs = new() { Text = "Save logs for analysis", AutoSize = true };
+    readonly CheckBox _chkTrace = new() { Text = "Log TCP segments", AutoSize = true };
     readonly LinkLabel _openLogs = new() { Text = "open the logs folder", AutoSize = true, Margin = new Padding(0, 6, 3, 3) };
     DiagFiles? _files;
     readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
@@ -112,6 +114,13 @@ sealed class MainForm : Form
         _openLogs.LinkClicked += (_, _) => { if (_files != null) OpenUri(_files.Folder); else Log.Info("tick 'Save logs for analysis' first"); };
         _traffic.Completed += r => _files?.Request(r);
         SetLogFiles(_settings.SaveLogs);
+        _chkTrace.Checked = Nat.TraceSegments = _settings.TraceSegments;
+        _chkTrace.CheckedChanged += (_, _) =>
+        {
+            _settings.TraceSegments = Nat.TraceSegments = _chkTrace.Checked;
+            _settings.Save();
+            Log.Info(_chkTrace.Checked ? "TCP segments are written into the log file" : "TCP segments no longer logged");
+        };
         _chkShortQueue.Checked = _settings.ShortQueue;
         _chkShortQueue.CheckedChanged += (_, _) =>
         {
@@ -128,7 +137,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.3 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.4 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -181,7 +190,9 @@ sealed class MainForm : Form
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs, _chkTrace });
+        _tips.SetToolTip(_chkTrace, "Debugging: writes every TCP segment to and from the phone into the log file\n" +
+            "(needs 'Save logs for analysis'). Many lines: turn it on only for a test.");
         _tips.SetToolTip(_chkLogs, "Writes the log (with every connection), one speed/diagnostics row per second,\n" +
             "and every request into the 'logs' folder next to GnuBoxShare.exe, one set of files per day\n" +
             "(kept 14 days). Claude can read them from there to analyse the speed.");

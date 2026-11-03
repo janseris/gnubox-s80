@@ -10,7 +10,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>GnuBoxShare</AssemblyName>
     <RootNamespace>GnuBoxShare</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <Product>GnuBox Share</Product>
     <Description>Internet for the Nokia 9300 over Bluetooth</Description>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

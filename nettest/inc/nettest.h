@@ -125,6 +125,52 @@ private:
 	TSockXfrLength iLen;
 	};
 
+// the upload test: 40 KB POSTs, first 4 on one kept-open connection, then 4 each on a fresh one
+class CNtUpload : public CActive
+	{
+public:
+	static CNtUpload* NewL(RSocketServ& aSs, MNtObserver& aObs);
+	~CNtUpload();
+	void StartL();
+	void Stop();
+	TBool Running() const { return iRunning; }
+	const TDesC8& Results() const { return iResults; }
+	void SetEngine(CNtEngine* aEngine) { iEngine = aEngine; }
+private:
+	CNtUpload(RSocketServ& aSs, MNtObserver& aObs);
+	void ConstructL();
+	enum TState { EIdle, EConnecting, ESending, EReading };
+	void RunL();
+	void DoCancel();
+	TInt RunError(TInt aError);
+	void Connect();
+	void SendPost();
+	void PostDone(TInt aError);
+	void Finish();
+	void CloseSock();
+	static TInt TickCb(TAny* aSelf);
+private:
+	RSocketServ& iSs;
+	MNtObserver& iObs;
+	TState iState;
+	RSocket iSock;
+	TBool iOpen;
+	TInetAddr iAddr;
+	HBufC8* iPost;
+	TBuf8<512> iAnswer;
+	TBuf8<512> iChunk;
+	TSockXfrLength iLen;
+	CPeriodic* iTicker;
+	TBool iRunning;
+	TInt iMode;			// 0: kept open, 1: fresh connection per POST
+	TInt iIndex;		// POST number within the mode
+	TTime iPostStart;
+	TTime iLastActivity;
+	TInt iConnectMs;
+	TBuf8<1500> iResults;
+	CNtEngine* iEngine;
+	};
+
 class CNtEngine : public CBase
 	{
 public:
@@ -136,6 +182,7 @@ public:
 	void Stop();
 	TBool Running() const { return iRunning; }
 	void SendResultsL();
+	void PostTextL(const TDesC8& aText);
 	// from the connections
 	TInt NextFileIndex();
 	void FileDone(TInt aIndex, TInt aBytes, TInt aMs, TInt aFirstMs);
@@ -221,6 +268,7 @@ public:
 private:
 	CNtView* iView;
 	CNtEngine* iEngine;
+	CNtUpload* iUpload;
 	};
 
 class CNtDocument : public CEikDocument

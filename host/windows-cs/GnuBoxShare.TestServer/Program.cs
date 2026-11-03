@@ -6,6 +6,7 @@ using GnuBoxShare;
 var addr = args.FirstOrDefault(a => a.Contains(':')) ?? "127.0.0.1:7777";
 var rewrite = args.Where(a => a.Contains('=') && !a.StartsWith("logs=")).Select(a => a.Split('=', 2)).ToDictionary(p => p[0], p => p[1]);
 Log.Verbose = args.Contains("-v");
+Nat.TraceSegments = args.Contains("-t");                   // every TCP segment into the log file
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 var status = new Status();

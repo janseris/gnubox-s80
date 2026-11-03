@@ -43,6 +43,7 @@ RESOURCE MENU_PANE r_nettest_menu
 		MENU_ITEM { command = ENtCmdFull; txt = "Full test (8 runs, all 118 files)"; },
 		MENU_ITEM { command = ENtCmdQuick; txt = "Quick test (8 runs, 40 files)"; },
 		MENU_ITEM { command = ENtCmdSmall; txt = "Small files (5 runs, 2-50 KB)"; },
+		MENU_ITEM { command = ENtCmdUpload; txt = "Upload test (8 POSTs of 40 KB)"; },
 		MENU_ITEM { command = ENtCmdStop; txt = "Stop"; },
 		MENU_ITEM { command = ENtCmdSend; txt = "Send results to the PC again"; },
 		MENU_ITEM { command = ENtCmdClear; txt = "Clear the screen"; flags = EEikMenuItemSeparatorAfter; },

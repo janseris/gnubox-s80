@@ -9,7 +9,8 @@ enum TNetTestCommands
 	ENtCmdStop,
 	ENtCmdSend,
 	ENtCmdClear,
-	ENtCmdSmall
+	ENtCmdSmall,
+	ENtCmdUpload
 	};
 
 #endif

@@ -35,6 +35,14 @@ public sealed class Nat
 
     internal int NextConnNo() => ++_connNo;
 
+    /// <summary>Debugging: write every TCP segment to and from the phone into the log file
+    /// (sequence numbers relative to each side's start).</summary>
+    public static volatile bool TraceSegments;
+
+    internal static string FlagText(byte f) =>
+        ((f & Ip.Syn) != 0 ? "S" : "") + ((f & Ip.Fin) != 0 ? "F" : "") + ((f & Ip.Rst) != 0 ? "R" : "") +
+        ((f & Ip.Psh) != 0 ? "P" : "") + ((f & Ip.Ack) != 0 ? "." : "");
+
     /// <summary>The name the phone looked up for this address, else the address.</summary>
     internal string NameOf(byte[] addr) =>
         _names.TryGetValue(BinaryPrimitives.ReadUInt32BigEndian(addr), out var n) ? n : Ip.Str(addr);
@@ -196,6 +204,8 @@ public sealed class Nat
                     if (o[i] == 2 && o[i + 1] == 4 && i + 4 <= o.Length) mss = BinaryPrimitives.ReadUInt16BigEndian(o[(i + 2)..]);
                     i += o[i + 1];
                 }
+                if (TraceSegments)
+                    Log.Detail($"seg new <phone S seq 0 win {win} mss {mss} options {Convert.ToHexString(o)} -> {Ip.Str(dst)}:{dport} port {sport}");
                 _tcp[key] = new TcpConn(this, key, dst, dport, sport, seq, win, mss);
             }
             else if ((flags & Ip.Rst) == 0)                                   // unknown connection: reset it
@@ -314,6 +324,8 @@ sealed class TcpConn
     volatile bool _readerMayRead;
     readonly ConnTraffic? _traffic;
     bool _connectFailed;
+    readonly int _no;                          // connection number (log)
+    readonly uint _irs;                        // the phone's initial sequence number
     public readonly TcpStats Stats = new();
     uint _timedSeq;                            // RTT: the segment end being timed (Karn: not after a resend)
     DateTime? _timedAt;
@@ -322,6 +334,8 @@ sealed class TcpConn
     {
         _nat = nat; Key = key; _dst = dst; _dport = dport; _sport = sport;
         _rcvNxt = isnPeer + 1;
+        _irs = isnPeer;
+        _no = nat.NextConnNo();
         _iss = (uint)Random.Shared.NextInt64(0, uint.MaxValue);
         _sndUna = _sndNxt = _iss;
         _peerWin = peerWin;
@@ -329,7 +343,7 @@ sealed class TcpConn
         _sock.NoDelay = true;
         var ep = new IPEndPoint(nat.RealAddress(dst), dport);
         if (nat.Traffic != null)
-            _traffic = new ConnTraffic(nat.Traffic, Ip.Str(dst) + ":" + dport, nat.NameOf(dst), dport, nat.NextConnNo(), Stats);
+            _traffic = new ConnTraffic(nat.Traffic, Ip.Str(dst) + ":" + dport, nat.NameOf(dst), dport, _no, Stats);
         Log.Detail($"TCP open {ep}");
         _ = ConnectAsync(ep);
     }
@@ -350,6 +364,9 @@ sealed class TcpConn
     void SendSeg(byte flags, ReadOnlySpan<byte> data = default, uint? seq = null, int mss = 0)
     {
         int win = Math.Max(0, RecvWindow - _toServer.Count - _sendingBytes);
+        if (Nat.TraceSegments)
+            Log.Detail($"seg c{_no} >phone {Nat.FlagText(flags)} seq {(seq ?? _sndNxt) - _iss} ack {_rcvNxt - _irs} len {data.Length} win {win}" +
+                $" | toServer {_toServer.Count} sending {_sendingBytes} pending {_pending.Count} unacked {_unacked.Count} {_state}");
         _nat.Host.SendIp(Ip.Tcp(_dst, _dport, Ip.Phone, _sport, seq ?? _sndNxt, _rcvNxt, flags, win, data, mss));
     }
 
@@ -372,6 +389,9 @@ sealed class TcpConn
 
     public void OnSegment(uint seq, uint ack, byte flags, int win, byte[] data)
     {
+        if (Nat.TraceSegments)
+            Log.Detail($"seg c{_no} <phone {Nat.FlagText(flags)} seq {seq - _irs} ack {ack - _iss} len {data.Length} win {win}" +
+                (seq != _rcvNxt && data.Length > 0 ? $" (expected seq {_rcvNxt - _irs})" : ""));
         _lastActivity = DateTime.UtcNow;
         _peerWin = win;
         Stats.PhoneWindow = win;
@@ -398,6 +418,8 @@ sealed class TcpConn
                 _bytesOut += data.Length;
                 _traffic?.FromPhone(data);
             }
+            else if (Nat.TraceSegments)
+                Log.Detail($"seg c{_no}   not taken: " + (seq != _rcvNxt ? "out of order / a repeat" : $"no room (toServer {_toServer.Count}, sending {_sendingBytes})"));
             SendSeg(Ip.Ack);                                          // in order, duplicate or out of order
         }
         if ((flags & Ip.Fin) != 0 && !_peerFin && seq + (uint)data.Length == _rcvNxt)
@@ -461,6 +483,7 @@ sealed class TcpConn
 
     async Task SendAsync(byte[] chunk)
     {
+        if (Nat.TraceSegments) Log.Detail($"seg c{_no}   to the server: {chunk.Length} B");
         try
         {
             int off = 0;
