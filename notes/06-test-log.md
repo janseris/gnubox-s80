@@ -222,3 +222,37 @@ Notes:
 - Test plan: (a) as now: download the 1 MB file, note speed, window, round trip, verdict;
   (b) GnuBox Settings > Bigger TCP window, restart the phone, connect, same download;
   (c) *Test: short send queue* on, same download; (d) two downloads at once.
+- Correction (2026-11-03): the ~35 kB/s ceiling is not "Bluetooth's limit". The same ~35 kB/s
+  came from two different hosts (Android + BlueDUN++, Windows + GnuBox Share), ~39% of the
+  Bluetooth 1.x radio's 723 kbit/s. The likely cause is the phone's BTCOMM.CSY (Symbian source,
+  2009 version): one socket read of at most 1 KB outstanding, a 4 KB circular buffer, reading
+  stops at 3 KB until PPP drains it to 2 KB. With 666-byte RFCOMM frames (the phone's L2CAP 672
+  minus headers), 35 kB/s = one read cycle per ~19 ms. GnuBox's ModemBearer rate (115200) is
+  not enforced. Unproven until a different serial driver is tried.
+
+## #17 Test session: alone vs. CPU-heavy app, compression offer (2026-11-03, 22:21-23:03) [device: user]
+GnuBox Share 1.3 logs (speed per second, requests), maps9300 1.47 log, browser9300 log.
+
+| Phase | Link avg (active s) | Phone window full | Round trip |
+|---|---|---|---|
+| maps9300.sis self-update (16 KB window) | 34-38 kB/s | 100% | 120-490 ms |
+| Browser 1 MB alone | 34.0 kB/s | 13% | 180-980 ms |
+| Maps panning (aerial, 2 TLS connections) | 25.5 kB/s (17.6 overall) | 100% | 290-740 ms |
+| Browser 1 MB + Maps panning | 24.7 kB/s (14.0 overall) | 73% | up to 2.8 s |
+| Browser 1 MB, GnuBox Compression on (refused) | 32.5 kB/s | 14% | 390-1050 ms |
+
+- **Alone, every app gets ~34 kB/s** (window rarely the limit for the browser's 48 KB; Maps'
+  16 KB window was full but still reached the same speed).
+- **Under Maps the phone, not the link, is the limit:** the phone's window was full 100% of the
+  time, i.e. Maps didn't read fast enough. Its log: disk-cache saves average 1371 ms with 34
+  waiting, tiles take 1.5-3.6 s each at 6-10 kB/s per thread, decoding only 46-156 ms. With the
+  browser downloading at the same time, both apps together got only ~14 kB/s and the round trip
+  reached 2.8 s: CPU / file-server contention on the phone (Bluetooth itself takes ~45% CPU).
+- **Compression:** with GnuBox Settings > Compression on, the phone offers **Stac LZS** (CCP)
+  and **Van Jacobson** header compression. GnuBox Share refuses both, so no change. Little to
+  gain: browser9300 already gets HTML/JS/CSS gzip'd ("gzip 1"), almost everything is HTTPS, and
+  pictures (Google's GIFs: 0.2-0.9 MB each) and tiles don't compress. VJ would save ~3%.
+- The Google start page: 16 s of scripts on the phone's CPU before the first layout.
+- Conclusion: a faster serial driver (GnuBox CSY) is the only lever left for single downloads,
+  and saving CPU in the Bluetooth path would also help CPU-heavy apps. PPP compression is not
+  worth building for today's traffic.
