@@ -315,3 +315,23 @@ advertise exactly the windows NetTest set (8160 / 16320 / 32640 / 65280 B).
   download's fixed costs: DNS, TCP connect (~0.1-0.3 s), and for HTTPS the TLS handshake
   (1.7-11 s over Bluetooth, Maps benchmarks). NetTest 1.2 adds a small-file test (2-50 KB, kept
   vs. new connections) to measure that.
+
+## #20 NetTest 1.2 small files: kept-open vs. new connections (2026-11-04, 00:37-00:41) [device: user]
+Plain HTTP from the PC, 40 files a run (8 each of 2 / 5 / 10 / 20 / 50 KB, 702 KB), 16 KB window.
+Median time per file on the phone: from the request, or with a new connection per file from its
+connect.
+
+| Run | Connections | Per file | Overall | 2 KB | 5 KB | 10 KB | 20 KB | 50 KB |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | kept open | 27.7 kB/s | 125 ms | 203 | 390 | 671 | 1578 |
+| 2 | 1 | new for each file | 14.3 kB/s | 734 ms | 812 | 1000 | 1312 | 2203 |
+| 3 | 2 | kept open | 30.7 kB/s | 562 ms | 656 | 453 | 1406 | 2406 |
+| 4 | 2 | new for each file | 29.0 kB/s | 984 ms | 390 | 546 | 1484 | 2328 |
+| 5 | 3 | kept open | 30.1 kB/s | 750 ms | 765 | 953 | 2015 | 3859 |
+
+- A new TCP connection costs ~0.6 s over GnuBox Bluetooth (not the 0.1-0.3 s assumed in #19);
+  with one connection, small files go half as fast. HTTPS adds its TLS handshake on top.
+- Kept open, a file takes ~0.1 s (one round trip) + its size at ~32 kB/s.
+- 2 connections kept open give the most in total and hide most of a new connection's cost; 3 only
+  make each file wait longer. For what the user waits for, fewer connections finish each item
+  sooner.
