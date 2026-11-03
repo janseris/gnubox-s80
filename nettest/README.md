@@ -17,13 +17,17 @@ carries; it downloads only from your own PC.
   median time to the first byte, slowest connection setup, errors. On the screen, appended to
   `C:\Data\NetTest\results.txt`, and POSTed to `http://192.168.137.1:8000/results?name=nettest`
   (saved as `localserver\uploads\<time>_nettest.txt`).
-- Every request carries `X-NetTest-Run: <run> P<connections> W<window>`, so GnuBox Share's
+- **Small files** (1.2, button *Small files*): 40 files `s000.bin` ... `s039.bin`, 2 / 5 / 10 /
+  20 / 50 KB in turn, 16 KB window; runs: 1 connection kept open, 1 connection new for every file,
+  2 kept open, 2 new for every file, 3 kept open. Per run also the median time per file for each
+  size (from the request, or with a new connection per file from its connect).
+- Every request carries `X-NetTest-Run: <run> P<connections> W<window>[ new]`, so GnuBox Share's
   `requests-<date>.jsonl` (with its per-second `speed-<date>.csv`) can be matched to the runs.
 - A connection without data for 30 s, or with an error, is reconnected and the file asked again
   (at most 20 errors a run).
 
-UID `0x0A5D10A4`, version 1.1, `release/nettest-1.1.sis`. 1.1: the status lines update once a
-second without redrawing the log below them (1.0 redrew the whole screen). Build: like GnuBox
+UID `0x0A5D10A4`, version 1.2, `release/nettest-1.2.sis`. 1.1: the status lines update once a
+second without redrawing the log below them (1.0 redrew the whole screen). 1.2: the small-file test. Build: like GnuBox
 (`notes/04-build.md`): `bldmake bldfiles && abld build armi urel` in `group/`, then `makesis` on
 `sis/nettest.pkg` with the built `nettest.app`, `.rsc` and `.aif` next to it. Checked: builds with
 no writable static data; the server side (keep-alive, Content-Length, the results POST) tested

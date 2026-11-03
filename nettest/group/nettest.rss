@@ -22,7 +22,7 @@ RESOURCE CBA r_nettest_cba
 	buttons =
 		{
 		CBA_BUTTON { id = ENtCmdFull; txt = "Full test"; },
-		CBA_BUTTON { id = ENtCmdQuick; txt = "Quick test"; },
+		CBA_BUTTON { id = ENtCmdSmall; txt = "Small files"; },
 		CBA_BUTTON { id = ENtCmdStop; txt = "Stop"; },
 		CBA_BUTTON { id = EEikCmdExit; txt = "Exit"; }
 		};
@@ -42,6 +42,7 @@ RESOURCE MENU_PANE r_nettest_menu
 		{
 		MENU_ITEM { command = ENtCmdFull; txt = "Full test (8 runs, all 118 files)"; },
 		MENU_ITEM { command = ENtCmdQuick; txt = "Quick test (8 runs, 40 files)"; },
+		MENU_ITEM { command = ENtCmdSmall; txt = "Small files (5 runs, 2-50 KB)"; },
 		MENU_ITEM { command = ENtCmdStop; txt = "Stop"; },
 		MENU_ITEM { command = ENtCmdSend; txt = "Send results to the PC again"; },
 		MENU_ITEM { command = ENtCmdClear; txt = "Clear the screen"; flags = EEikMenuItemSeparatorAfter; },

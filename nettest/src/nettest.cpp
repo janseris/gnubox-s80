@@ -21,14 +21,24 @@ const TInt KNtTimeoutSec = 30;			// no data for this long: reconnect
 const TInt KMaxLogLines = 400;
 const TInt KWrapAt = 78;
 
-struct TNtSetting { TInt iParallel; TInt iWindow; };
-// the test list: window first with 2 connections (Maps' default), then 3 and 1 connections
-static const TNtSetting KNtSettings[8] =
+struct TNtSetting { TInt iParallel; TInt iWindow; TInt iNewConn; };
+// the big-file test (the sizes of a Maps 3D download): window first with 2 connections
+// (Maps' default), then 3 and 1 connections; connections kept open
+static const TNtSetting KNtBig[8] =
 	{
-	{ 2, 8192 }, { 2, 16384 }, { 2, 32768 }, { 2, 65535 },
-	{ 3, 16384 }, { 3, 32768 }, { 1, 16384 }, { 1, 65535 }
+	{ 2, 8192, 0 }, { 2, 16384, 0 }, { 2, 32768, 0 }, { 2, 65535, 0 },
+	{ 3, 16384, 0 }, { 3, 32768, 0 }, { 1, 16384, 0 }, { 1, 65535, 0 }
 	};
+// the small-file test (2-50 KB): connections kept open or a new one for every file
+static const TNtSetting KNtSmall[5] =
+	{
+	{ 1, 16384, 0 }, { 1, 16384, 1 }, { 2, 16384, 0 }, { 2, 16384, 1 }, { 3, 16384, 0 }
+	};
+static const TInt KNtSizeKb[5] = { 2, 5, 10, 20, 50 };
 
+_LIT8(KNtNew8, " new");
+_LIT(KNtNewLong, ", a new connection for every file");
+_LIT(KNtNewShort, " (new per file)");
 _LIT(KNtResultsDir, "C:\\Data\\NetTest\\");
 _LIT(KNtResultsFile, "C:\\Data\\NetTest\\results.txt");
 
@@ -66,9 +76,10 @@ CNtConn::~CNtConn()
 	Stop();
 	}
 
-void CNtConn::Start(TInt aWindow)
+void CNtConn::Start(TInt aWindow, TBool aNewConn)
 	{
 	iWindow = aWindow;
+	iNewConn = aNewConn;
 	iFile = -1;
 	TInt err = iSock.Open(iEngine.SocketServ(), KAfInet, KSockStream, KProtocolInetTcp);
 	if (err != KErrNone)
@@ -136,7 +147,7 @@ void CNtConn::Fail(TInt aError)
 	iFile = -1;
 	iEngine.FileFailed(file, iId, aError);
 	if (iEngine.ShouldReconnect())
-		Start(iWindow);
+		Start(iWindow, iNewConn);
 	else
 		iEngine.ConnIdle();
 	}
@@ -157,9 +168,10 @@ void CNtConn::NextFile()
 		return;
 		}
 	const TNtRun& run = iEngine.Run();
-	iReq.Format(_L8("GET /nettest/f%03d.bin HTTP/1.1\r\nHost: 192.168.137.1:8000\r\n"
-		"X-NetTest-Run: %d P%d W%d\r\nConnection: keep-alive\r\n\r\n"),
-		iFile, iEngine.CurrentRun() + 1, run.iParallel, run.iWindow);
+	iReq.Format(_L8("GET /nettest/%c%03d.bin HTTP/1.1\r\nHost: 192.168.137.1:8000\r\n"
+		"X-NetTest-Run: %d P%d W%d%S\r\nConnection: keep-alive\r\n\r\n"),
+		iEngine.Small() ? 's' : 'f', iFile, iEngine.CurrentRun() + 1, run.iParallel, run.iWindow,
+		iNewConn ? &(const TDesC8&)KNtNew8 : &(const TDesC8&)KNullDesC8);
 	iHead.Zero();
 	iInBody = EFalse;
 	iBodyLeft = 0;
@@ -274,8 +286,20 @@ void CNtConn::HandleData(const TDesC8& aData)
 		}
 	TTime now;
 	now.HomeTime();
-	iEngine.FileDone(iFile, iFileBytes, MsBetween(iSent, now), MsBetween(iSent, iFirst));
+	// a file's time: from the request, or with a new connection per file from its connect
+	iEngine.FileDone(iFile, iFileBytes, MsBetween(iNewConn ? iConnectStart : iSent, now), MsBetween(iSent, iFirst));
 	iFile = -1;
+	if (iNewConn)
+		{
+		iSock.Close();
+		iOpen = EFalse;
+		iState = EIdle;
+		if (iEngine.HasMoreFiles())
+			Start(iWindow, ETrue);
+		else
+			iEngine.ConnIdle();
+		return;
+		}
 	NextFile();
 	}
 
@@ -417,19 +441,27 @@ CNtEngine::~CNtEngine()
 	iRetry.Close();
 	iFileMs.Close();
 	iFirstMs.Close();
+	for (TInt k = 0; k < 5; k++)
+		iSizeMs[k].Close();
 	iSs.Close();
 	}
 
-void CNtEngine::StartL(TInt aFiles)
+void CNtEngine::StartL(TInt aFiles, TBool aSmall)
 	{
 	if (iRunning)
 		return;
 	iFiles = aFiles;
+	iSmall = aSmall;
+	iRunCount = aSmall ? 5 : 8;
 	for (TInt i = 0; i < iRunCount; i++)
 		{
 		TNtRun& r = iRuns[i];
-		r.iParallel = KNtSettings[i].iParallel;
-		r.iWindow = KNtSettings[i].iWindow;
+		const TNtSetting& set = aSmall ? KNtSmall[i] : KNtBig[i];
+		r.iParallel = set.iParallel;
+		r.iWindow = set.iWindow;
+		r.iNewConn = set.iNewConn;
+		for (TInt k = 0; k < 5; k++)
+			r.iSizeMs[k] = 0;
 		r.iFilesDone = r.iBytes = r.iErrors = r.iMs = 0;
 		r.iFileMsMedian = r.iFirstMsMedian = r.iConnectMs = 0;
 		r.iDone = EFalse;
@@ -438,7 +470,10 @@ void CNtEngine::StartL(TInt aFiles)
 	iRunning = ETrue;
 	iTestStart.HomeTime();
 	TBuf<120> t;
-	t.Format(_L("Test started: %d runs, %d files each (/nettest/f000.bin...)."), iRunCount, iFiles);
+	if (aSmall)
+		t.Format(_L("Small-file test started: %d runs, %d files each (2, 5, 10, 20, 50 KB; /nettest/s000.bin...)."), iRunCount, iFiles);
+	else
+		t.Format(_L("Test started: %d runs, %d files each (/nettest/f000.bin...)."), iRunCount, iFiles);
 	Log(t);
 	iTicker->Cancel();
 	iTicker->Start(1000000, 1000000, TCallBack(TickCb, this));
@@ -452,15 +487,18 @@ void CNtEngine::StartRun()
 	iRetry.Reset();
 	iFileMs.Reset();
 	iFirstMs.Reset();
+	for (TInt k = 0; k < 5; k++)
+		iSizeMs[k].Reset();
 	iRunStart.HomeTime();
 	iTickBytes = 0;
 	iTickTime = iRunStart;
 	iKBs10 = 0;
 	TBuf<100> t;
-	t.Format(_L("Run %d/%d: %d connection(s), TCP window %d B"), iRun + 1, iRunCount, r.iParallel, r.iWindow);
+	t.Format(_L("Run %d/%d: %d connection(s), TCP window %d B%S"), iRun + 1, iRunCount, r.iParallel, r.iWindow,
+		r.iNewConn ? &(const TDesC&)KNtNewLong : &(const TDesC&)KNullDesC);
 	Log(t);
 	for (TInt i = 0; i < r.iParallel; i++)
-		iConns[i]->Start(r.iWindow);
+		iConns[i]->Start(r.iWindow, r.iNewConn);
 	}
 
 TInt CNtEngine::NextFileIndex()
@@ -484,13 +522,15 @@ void CNtEngine::Connected(TInt aMs)
 		iRuns[iRun].iConnectMs = aMs;
 	}
 
-void CNtEngine::FileDone(TInt /*aIndex*/, TInt aBytes, TInt aMs, TInt aFirstMs)
+void CNtEngine::FileDone(TInt aIndex, TInt aBytes, TInt aMs, TInt aFirstMs)
 	{
 	TNtRun& r = iRuns[iRun];
 	r.iFilesDone++;
 	r.iBytes += aBytes;
 	iFileMs.Append(aMs);
 	iFirstMs.Append(aFirstMs);
+	if (iSmall && aIndex >= 0)
+		iSizeMs[aIndex % 5].Append(aMs);
 	}
 
 void CNtEngine::FileFailed(TInt aIndex, TInt aConnId, TInt aError)
@@ -560,6 +600,14 @@ void CNtEngine::FinishRun()
 		r.iFilesDone, r.iBytes / 1024, r.iMs / 1000, (r.iMs % 1000) / 100, s / 10, s % 10,
 		r.iFileMsMedian, r.iFirstMsMedian, r.iErrors);
 	Log(t);
+	if (iSmall)
+		{
+		for (TInt k = 0; k < 5; k++)
+			r.iSizeMs[k] = Median(iSizeMs[k]);
+		t.Format(_L("  per file: 2 KB %d ms, 5 KB %d ms, 10 KB %d ms, 20 KB %d ms, 50 KB %d ms; connect %d ms"),
+			r.iSizeMs[0], r.iSizeMs[1], r.iSizeMs[2], r.iSizeMs[3], r.iSizeMs[4], r.iConnectMs);
+		Log(t);
+		}
 	iRun++;
 	if (iRun < iRunCount)
 		{
@@ -630,8 +678,9 @@ void CNtEngine::Tick()
 		}
 	TInt avg = Speed10(r.iBytes, ms);
 	TBuf<120> l1, l2;
-	l1.Format(_L("Run %d/%d: %d conn., window %d KB - %d of %d files, %d KB"),
-		iRun + 1, iRunCount, r.iParallel, (r.iWindow + 512) / 1024, r.iFilesDone, iFiles, r.iBytes / 1024);
+	l1.Format(_L("Run %d/%d: %d conn.%S, window %d KB - %d of %d files, %d KB"),
+		iRun + 1, iRunCount, r.iParallel, r.iNewConn ? &(const TDesC&)KNtNewShort : &(const TDesC&)KNullDesC,
+		(r.iWindow + 512) / 1024, r.iFilesDone, iFiles, r.iBytes / 1024);
 	l2.Format(_L("%d.%d kB/s average, files finished in the last second: %d.%d kB/s, %d s, errors %d"),
 		avg / 10, avg % 10, iKBs10 / 10, iKBs10 % 10, ms / 1000, r.iErrors);
 	iObs.NtStatus(l1, l2);
@@ -644,13 +693,14 @@ void CNtEngine::BuildResults(TDes8& aText, TBool /*aForPc*/)
 	TBuf<40> stamp;
 	TRAPD(ignore, iTestStart.FormatL(stamp, _L("%F%Y-%M-%D %H:%T:%S")));
 	TBuf8<200> line;
-	line.Copy(_L8("NetTest 1.1 results, test started "));
+	line.Copy(iSmall ? _L8("NetTest 1.2 small-file results, test started ") : _L8("NetTest 1.2 results, test started "));
 	TBuf8<40> stamp8;
 	stamp8.Copy(stamp);
 	line.Append(stamp8);
 	line.AppendFormat(_L8(", %d files per run from http://192.168.137.1:8000/nettest/\r\n"), iFiles);
 	aText.Append(line);
-	aText.Append(_L8("run; connections; TCP window B; files; KB; seconds; kB/s; file median ms; first byte median ms; slowest connect ms; errors\r\n"));
+	aText.Append(_L8("run; connections; TCP window B; files; KB; seconds; kB/s; file median ms; first byte median ms; slowest connect ms; errors"));
+	aText.Append(iSmall ? _L8("; new connection per file; 2 KB ms; 5 KB ms; 10 KB ms; 20 KB ms; 50 KB ms\r\n") : _L8("\r\n"));
 	for (TInt i = 0; i < iRunCount; i++)
 		{
 		const TNtRun& r = iRuns[i];
@@ -660,6 +710,12 @@ void CNtEngine::BuildResults(TDes8& aText, TBool /*aForPc*/)
 		line.Format(_L8("%d; %d; %d; %d; %d; %d.%d; %d.%d; %d; %d; %d; %d\r\n"),
 			i + 1, r.iParallel, r.iWindow, r.iFilesDone, r.iBytes / 1024, r.iMs / 1000, (r.iMs % 1000) / 100,
 			s / 10, s % 10, r.iFileMsMedian, r.iFirstMsMedian, r.iConnectMs, r.iErrors);
+		if (iSmall)
+			{
+			line.SetLength(line.Length() - 2);		// before the \r\n
+			line.AppendFormat(_L8("; %d; %d; %d; %d; %d; %d\r\n"), r.iNewConn ? 1 : 0,
+				r.iSizeMs[0], r.iSizeMs[1], r.iSizeMs[2], r.iSizeMs[3], r.iSizeMs[4]);
+			}
 		if (aText.Length() + line.Length() <= aText.MaxLength())
 			aText.Append(line);
 		}
@@ -710,7 +766,7 @@ void CNtView::ConstructL(const TRect& aRect)
 	CreateWindowL();
 	iStatus1 = new (ELeave) CEikLabel;
 	iStatus1->SetContainerWindowL(*this);
-	iStatus1->SetTextL(_L("NetTest 1.1"));
+	iStatus1->SetTextL(_L("NetTest 1.2"));
 	iStatus2 = new (ELeave) CEikLabel;
 	iStatus2->SetContainerWindowL(*this);
 	iStatus2->SetTextL(KNullDesC);
@@ -852,12 +908,12 @@ void CNtAppUi::ConstructL()
 	iView = CNtView::NewL(ClientRect());
 	AddToStackL(iView);
 	iEngine = CNtEngine::NewL(*this);
-	iView->Log(_L("NetTest 1.1: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
+	iView->Log(_L("NetTest 1.2: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
 		"once for each of 8 settings: 2 connections with a 8 / 16 / 32 / 64 KB TCP window, 3 connections with "
 		"16 / 32 KB, 1 connection with 16 / 64 KB."));
 	iView->Log(_L("Before: connect GnuBox (or the USB cable), and run the PC's localserver (ota_server.js) "
 		"with the files in localserver\\nettest. Then: Full test (~10-15 min over Bluetooth) or Quick test "
-		"(40 files a run, ~4 min)."));
+		"(40 files a run, ~4 min). Small files: 2-50 KB files, connections kept open or new for each file (~3 min)."));
 	}
 
 CNtAppUi::~CNtAppUi()
@@ -889,10 +945,13 @@ void CNtAppUi::HandleCommandL(TInt aCommand)
 	switch (aCommand)
 		{
 	case ENtCmdFull:
-		iEngine->StartL(KNtMaxFiles);
+		iEngine->StartL(KNtMaxFiles, EFalse);
 		break;
 	case ENtCmdQuick:
-		iEngine->StartL(40);
+		iEngine->StartL(40, EFalse);
+		break;
+	case ENtCmdSmall:
+		iEngine->StartL(KNtSmallFiles, ETrue);
 		break;
 	case ENtCmdStop:
 		iEngine->Stop();

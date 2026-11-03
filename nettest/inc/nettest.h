@@ -27,6 +27,7 @@ class CEikTextListBox;
 const TUid KUidNetTest = { 0x0A5D10A4 };
 const TInt KNtMaxParallel = 3;
 const TInt KNtMaxFiles = 118;
+const TInt KNtSmallFiles = 40;		// s000.bin ... s039.bin: 2, 5, 10, 20, 50 KB in turn
 
 class MNtObserver
 	{
@@ -49,6 +50,8 @@ public:
 	TInt iFileMsMedian;	// request sent -> last byte, per file
 	TInt iFirstMsMedian;	// request sent -> first byte, per file
 	TInt iConnectMs;	// the slowest connection setup
+	TBool iNewConn;		// a new connection for every file (else kept open)
+	TInt iSizeMs[5];	// small-file test: median ms per file of 2/5/10/20/50 KB
 	TBool iDone;
 	};
 
@@ -60,7 +63,7 @@ class CNtConn : public CActive
 public:
 	CNtConn(CNtEngine& aEngine, TInt aId);
 	~CNtConn();
-	void Start(TInt aWindow);
+	void Start(TInt aWindow, TBool aNewConn);
 	void Stop();
 	void Timeout();
 	TBool Busy() const { return iState != EIdle; }
@@ -82,6 +85,7 @@ private:
 	TBool iOpen;
 	TInetAddr iAddr;
 	TInt iWindow;
+	TBool iNewConn;
 	TTime iConnectStart;
 	TBuf8<16384> iBuf;
 	TSockXfrLength iLen;
@@ -126,7 +130,9 @@ class CNtEngine : public CBase
 public:
 	static CNtEngine* NewL(MNtObserver& aObs);
 	~CNtEngine();
-	void StartL(TInt aFiles);
+	void StartL(TInt aFiles, TBool aSmall);
+	TBool Small() const { return iSmall; }
+	TBool HasMoreFiles() const { return iRetry.Count() > 0 || iNext < iFiles; }
 	void Stop();
 	TBool Running() const { return iRunning; }
 	void SendResultsL();
@@ -169,6 +175,8 @@ private:
 	RArray<TInt> iRetry;
 	RArray<TInt> iFileMs;
 	RArray<TInt> iFirstMs;
+	RArray<TInt> iSizeMs[5];
+	TBool iSmall;
 	TTime iRunStart;
 	TTime iTestStart;
 	TBool iRunning;

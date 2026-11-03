@@ -256,3 +256,62 @@ GnuBox Share 1.3 logs (speed per second, requests), maps9300 1.47 log, browser93
 - Conclusion: a faster serial driver (GnuBox CSY) is the only lever left for single downloads,
   and saving CPU in the Bluetooth path would also help CPU-heavy apps. PPP compression is not
   worth building for today's traffic.
+
+## #18 Browser downloads: no idle seconds at the question (2026-11-04, 00:01-00:18) [device: user]
+GnuBox Share 1.3 logs (speed per second, requests), browser9300 0.44-0.48 logs. The same files
+from localserver over GnuBox BT; browser9300's TCP window 48 KB, Maps 9300's 16 KB.
+
+| Download | Browser | Whole download | Seconds at 0 kB/s | Steady |
+|---|---|---|---|---|
+| browser9300.sis 327 KB, 00:01 | 0.44 (stops reading at the "download it?" question) | 10.0 s | 2 (window 5 KB, then 0) | 34-37 kB/s |
+| maps9300.sis 264 KB, 00:04 | 0.45 (reads on into RAM at the question) | 7.7 s | 2 (after the question: "Replace the file?") | 34-37 kB/s |
+| browser9300.sis 327 KB, 00:17 | 0.47 (no second question in the temporary folder) | 7.3 s by the request record, ~9.2 s of data by the per-second rows | **0** | **34-37 kB/s every second** |
+| maps9300.sis 264 KB (Maps 9300 self-update, no question) | - | 5.9 s | 0 | 34-37 kB/s |
+
+- **Not a new top speed of the link:** the steady rate is the same ~35 kB/s ceiling as in #17
+  (BTCOMM, see the correction there). New: **the browser loses no time to its own dialogs any
+  more** - every second of the 0.47 download carried data, as Maps 9300's self-update does.
+  Before, the transfer stood still while the question was up (0.44) or during the second
+  "Replace the file?" question (0.45).
+- The two times differ: the request record says 327 579 B in 7314 ms (44.8 kB/s), but the
+  per-second rows show data from 00:17:40 to 00:17:49 (341 KB with headers and PPP, ~35.5 kB/s).
+  The record's time probably ends when GnuBox Share has handed the last bytes on, not when the
+  phone has them. Compare downloads by the per-second rows.
+- Browser changes behind it: 0.45 reads the body into RAM while the question is up (512 KB at
+  most); 0.47 replaces a file in the temporary folder without asking; 0.45 also redraws the
+  progress text every 300 ms instead of every 2 KB (~17 times a second at 35 kB/s); 0.48 says
+  "Writing the file" during the final flash write (the progress looked stuck a few KB short).
+
+## #19 NetTest 1.0 Quick test: windows and parallel connections (2026-11-04, 00:22-00:27) [device: user]
+NetTest (new, `nettest/`) downloads random test files from the PC's localserver (no TLS, no
+internet server, no decoding) with the sizes of a Maps 3D download (40 of the 118 files, 755 KB a
+run, 12-41 KB each), once per setting. NetTest's kB/s counts from the first connect to the last
+byte; "link" is GnuBox Share's per-second average while data flowed. GnuBox Share saw the phone
+advertise exactly the windows NetTest set (8160 / 16320 / 32640 / 65280 B).
+
+| Run | Connections | Window | NetTest | Link | Round trip avg | Window full |
+|---|---|---|---|---|---|---|
+| 1 | 2 | 8 KB | 29.3 kB/s | 32.9 kB/s | 358 ms | 100% |
+| 2 | 2 | 16 KB | 30.9 | 33.8 | 530 ms | 100% |
+| 3 | 2 | 32 KB | 31.1 | 33.8 | 612 ms | 0% |
+| 4 | 2 | 64 KB | 31.1 | 34.2 | 624 ms | 0% |
+| 5 | 3 | 16 KB | 30.7 | 34.4 | 842 ms | 100% |
+| 6 | 3 | 32 KB | 30.7 | 34.4 | 1145 ms | 0% |
+| 7 | 1 | 16 KB | 28.5 | 30.0 | 379 ms | 100% |
+| 8 | 1 | 64 KB | 28.6 | 30.4 | 146 ms | 0% |
+
+- **~34 kB/s whatever the TCP settings.** With 2-3 connections every window from 8 to 64 KB gives
+  the same link speed; even with the 8 KB windows "full" all the time the speed didn't drop, so
+  something below TCP limits first (the BTCOMM explanation, #16). No TLS, server or app here.
+- Bigger windows / more connections only add delay: 2 connections 358 ms (8 KB) -> 624 ms (64 KB);
+  3 connections with 32 KB 1.1 s - anything else loading at the time waits that long.
+- 1 connection loses ~10% to the pause between files (here short: the local server answers in
+  ~100 ms, first byte median 109 ms).
+- For Maps over Bluetooth: 2 connections, 8-16 KB. Maps reached only 23-25 kB/s with 2 x 8 KB in
+  the real 3D run (#17 session), 33 here: the difference is Mapy.com over HTTPS (server time and
+  TLS on the phone); 16 KB or 3 connections can hide a slower first byte, more only adds delay.
+- The "slow start" seen in apps is not the link: GnuBox Share sends at full speed from the first
+  second (its TCP has no slow start; first second ~30 kB/s with 2 connections). It is each new
+  download's fixed costs: DNS, TCP connect (~0.1-0.3 s), and for HTTPS the TLS handshake
+  (1.7-11 s over Bluetooth, Maps benchmarks). NetTest 1.2 adds a small-file test (2-50 KB, kept
+  vs. new connections) to measure that.
