@@ -15,6 +15,6 @@ USERINCLUDE     ..\inc
 SYSTEMINCLUDE   \epoc32\include
 
 LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib eikcoctl.lib
-LIBRARY         eikctl.lib bafl.lib efsrv.lib esock.lib insock.lib
+LIBRARY         eikctl.lib bafl.lib efsrv.lib esock.lib insock.lib ws32.lib
 
 AIF nettest.aif ..\aif nettestaif.rss c16 nettest25.bmp nettest25_mask.bmp nettest64.bmp nettest64_mask.bmp

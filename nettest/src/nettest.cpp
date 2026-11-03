@@ -644,7 +644,7 @@ void CNtEngine::BuildResults(TDes8& aText, TBool /*aForPc*/)
 	TBuf<40> stamp;
 	TRAPD(ignore, iTestStart.FormatL(stamp, _L("%F%Y-%M-%D %H:%T:%S")));
 	TBuf8<200> line;
-	line.Copy(_L8("NetTest 1.0 results, test started "));
+	line.Copy(_L8("NetTest 1.1 results, test started "));
 	TBuf8<40> stamp8;
 	stamp8.Copy(stamp);
 	line.Append(stamp8);
@@ -710,7 +710,7 @@ void CNtView::ConstructL(const TRect& aRect)
 	CreateWindowL();
 	iStatus1 = new (ELeave) CEikLabel;
 	iStatus1->SetContainerWindowL(*this);
-	iStatus1->SetTextL(_L("NetTest 1.0"));
+	iStatus1->SetTextL(_L("NetTest 1.1"));
 	iStatus2 = new (ELeave) CEikLabel;
 	iStatus2->SetContainerWindowL(*this);
 	iStatus2->SetTextL(KNullDesC);
@@ -787,7 +787,10 @@ void CNtView::SetStatusL(const TDesC& aLine1, const TDesC& aLine2)
 	{
 	iStatus1->SetTextL(aLine1);
 	iStatus2->SetTextL(aLine2);
-	DrawNow();
+	// redraw only the header (the two status lines), not the log below: the test should
+	// leave the CPU to the Bluetooth stack
+	TRect r = Rect();
+	Window().Invalidate(TRect(r.iTl, TSize(r.Width(), iHeaderHeight)));
 	}
 
 void CNtView::Log(const TDesC& aText)
@@ -849,7 +852,7 @@ void CNtAppUi::ConstructL()
 	iView = CNtView::NewL(ClientRect());
 	AddToStackL(iView);
 	iEngine = CNtEngine::NewL(*this);
-	iView->Log(_L("NetTest 1.0: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
+	iView->Log(_L("NetTest 1.1: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
 		"once for each of 8 settings: 2 connections with a 8 / 16 / 32 / 64 KB TCP window, 3 connections with "
 		"16 / 32 KB, 1 connection with 16 / 64 KB."));
 	iView->Log(_L("Before: connect GnuBox (or the USB cable), and run the PC's localserver (ota_server.js) "

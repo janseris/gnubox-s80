@@ -22,7 +22,8 @@ carries; it downloads only from your own PC.
 - A connection without data for 30 s, or with an error, is reconnected and the file asked again
   (at most 20 errors a run).
 
-UID `0x0A5D10A4`, version 1.0, `release/nettest-1.0.sis`. Build: like GnuBox
+UID `0x0A5D10A4`, version 1.1, `release/nettest-1.1.sis`. 1.1: the status lines update once a
+second without redrawing the log below them (1.0 redrew the whole screen). Build: like GnuBox
 (`notes/04-build.md`): `bldmake bldfiles && abld build armi urel` in `group/`, then `makesis` on
 `sis/nettest.pkg` with the built `nettest.app`, `.rsc` and `.aif` next to it. Checked: builds with
 no writable static data; the server side (keep-alive, Content-Length, the results POST) tested
