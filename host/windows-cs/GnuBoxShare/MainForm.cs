@@ -16,6 +16,7 @@ sealed class Settings
     public bool ShortQueue { get; set; }
     public bool SaveLogs { get; set; } = true;
     public bool TraceSegments { get; set; }
+    public bool SingleAck { get; set; }
     public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
@@ -68,6 +69,7 @@ sealed class MainForm : Form
     readonly CheckBox _chkShortQueue = new() { Text = "Test: short send queue", AutoSize = true };
     readonly CheckBox _chkLogs = new() { Text = "Save logs for analysis", AutoSize = true };
     readonly CheckBox _chkTrace = new() { Text = "Log TCP segments", AutoSize = true };
+    readonly CheckBox _chkSingleAck = new() { Text = "Test: one ACK per segment", AutoSize = true };
     readonly LinkLabel _openLogs = new() { Text = "open the logs folder", AutoSize = true, Margin = new Padding(0, 6, 3, 3) };
     DiagFiles? _files;
     readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
@@ -121,6 +123,13 @@ sealed class MainForm : Form
             _settings.Save();
             Log.Info(_chkTrace.Checked ? "TCP segments are written into the log file" : "TCP segments no longer logged");
         };
+        _chkSingleAck.Checked = Nat.SingleAck = _settings.SingleAck;
+        _chkSingleAck.CheckedChanged += (_, _) =>
+        {
+            _settings.SingleAck = Nat.SingleAck = _chkSingleAck.Checked;
+            _settings.Save();
+            Log.Info(_chkSingleAck.Checked ? "test: one ACK per segment" : "normal ACKs (at once + window update)");
+        };
         _chkShortQueue.Checked = _settings.ShortQueue;
         _chkShortQueue.CheckedChanged += (_, _) =>
         {
@@ -137,7 +146,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.4 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.5 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -190,7 +199,9 @@ sealed class MainForm : Form
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs, _chkTrace });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs, _chkTrace, _chkSingleAck });
+        _tips.SetToolTip(_chkSingleAck, "Test: acknowledge the phone's data once, after it went to the server,\n" +
+            "instead of at once and again as a window update (half the packets to the phone while it uploads).");
         _tips.SetToolTip(_chkTrace, "Debugging: writes every TCP segment to and from the phone into the log file\n" +
             "(needs 'Save logs for analysis'). Many lines: turn it on only for a test.");
         _tips.SetToolTip(_chkLogs, "Writes the log (with every connection), one speed/diagnostics row per second,\n" +
@@ -335,7 +346,7 @@ sealed class MainForm : Form
         _diagHist.Clear();
         _files?.Watch(_status);
         Log.Info($"sharing started: GnuBox Share {Application.ProductVersion.Split('+')[0]}, {Environment.OSVersion}, .NET {Environment.Version}, " +
-                 $"short send queue {(_settings.ShortQueue ? "on" : "off")}");
+                 $"short send queue {(_settings.ShortQueue ? "on" : "off")}, one ACK per segment {(_settings.SingleAck ? "on" : "off")}, TCP segments logged {(_settings.TraceSegments ? "yes" : "no")}");
         _last = (DateTime.UtcNow, 0, 0);
         _graph.ResetPeaks();
         _cts = new CancellationTokenSource();

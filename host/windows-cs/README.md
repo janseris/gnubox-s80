@@ -44,6 +44,10 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   length, window, and GnuBox Share's buffers), plus each new connection's SYN options. For debugging
   only (many lines).
 
+- **Test: one ACK per segment** (1.5, off by default): acknowledge the phone's data once, after it
+  went to the server (with the full window), instead of at once and again as a window update. For
+  the upload freeze (`notes/06-test-log.md` #21).
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and

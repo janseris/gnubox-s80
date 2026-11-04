@@ -335,3 +335,29 @@ connect.
 - 2 connections kept open give the most in total and hide most of a new connection's cost; 3 only
   make each file wait longer. For what the user waits for, fewer connections finish each item
   sooner.
+
+## #21 The upload stall: the phone's whole uplink freezes (2026-11-04, 00:57-01:05) [device: user]
+NetTest 1.3's upload test (40 KB POSTs, 16 KB windows as Maps) with GnuBox Share 1.4 logging every
+TCP segment. Reproduces Maps 9300's report (big POSTs over GnuBox, `symbian-s80v2-dev-tips-and-
+tricks/networking.md` section 11).
+
+- POST 1 on a fresh connection: 40 KB in ~1.3 s, every segment acked at once.
+- POST 2 on the same connection (after our 172-byte answer): the phone sent **exactly 16 384 bytes**
+  (its send window), GnuBox Share acked every byte at once with a 65 535-byte window, the phone
+  **never retransmitted** (it knew all had arrived) - and then sent nothing more.
+- **Nothing at all came from the phone for the next 5 minutes**: no retransmissions, no new
+  connections (NetTest's later POSTs on fresh connections never reached the PC: no SYN), no PPP
+  echo; 0 bytes either way in the per-second log. The Bluetooth link stayed up, and when the user
+  disconnected in GnuBox the phone did send its PPP hang-up (146 B).
+- So it isn't one stuck TCP connection: **the phone's outgoing IP path froze**, below TCP: most
+  likely the PPP NIF / BTCOMM.CSY send path (BTCOMM: 1 KB send buffer, one write at a time) never
+  signalled "can send" again, and the IP stack waits for ever. Maps 9300's workaround (a fresh
+  connection per big upload) worked for 1.5 MB on 3 Nov, so the trigger is more specific; the
+  difference here: the phone was receiving at the same moment (our 172-byte answer, then two ACKs
+  per segment while it uploaded).
+- On our side GnuBox Share acks every phone segment twice (at once, then a window update when the
+  data has gone to the server). A receive arriving while BTCOMM writes is a classic way to wedge
+  a simple serial driver. GnuBox Share 1.5 adds *Test: one ACK per segment* (half the packets to
+  the phone during uploads; checked with the simulated phone: 4 x 40 KB up, 1 MB down identical).
+  Next: the upload test with it on; and, if possible, the same test over Android BlueDUN++ (a
+  normal TCP stack with delayed ACKs) to see whether the freeze depends on the host.

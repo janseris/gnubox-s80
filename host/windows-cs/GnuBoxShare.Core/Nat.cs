@@ -39,6 +39,10 @@ public sealed class Nat
     /// (sequence numbers relative to each side's start).</summary>
     public static volatile bool TraceSegments;
 
+    /// <summary>Test: acknowledge the phone's data once, after it has been handed to the server
+    /// (with the full window), instead of at once and again as a window update.</summary>
+    public static volatile bool SingleAck;
+
     internal static string FlagText(byte f) =>
         ((f & Ip.Syn) != 0 ? "S" : "") + ((f & Ip.Fin) != 0 ? "F" : "") + ((f & Ip.Rst) != 0 ? "R" : "") +
         ((f & Ip.Psh) != 0 ? "P" : "") + ((f & Ip.Ack) != 0 ? "." : "");
@@ -420,7 +424,10 @@ sealed class TcpConn
             }
             else if (Nat.TraceSegments)
                 Log.Detail($"seg c{_no}   not taken: " + (seq != _rcvNxt ? "out of order / a repeat" : $"no room (toServer {_toServer.Count}, sending {_sendingBytes})"));
-            SendSeg(Ip.Ack);                                          // in order, duplicate or out of order
+            // in order, duplicate or out of order: acknowledge at once - unless (SingleAck) the
+            // data goes to the server now and its completion sends the one ACK with the window
+            if (!(Nat.SingleAck && !_sending && _state == "open" && _toServer.Count > 0))
+                SendSeg(Ip.Ack);
         }
         if ((flags & Ip.Fin) != 0 && !_peerFin && seq + (uint)data.Length == _rcvNxt)
         {
