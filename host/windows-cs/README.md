@@ -48,6 +48,10 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   went to the server (with the full window), instead of at once and again as a window update. For
   the upload freeze (`notes/06-test-log.md` #21).
 
+- **Test: small upload window** (1.6, off by default): GnuBox Share advertises only 2720 B (2 segments)
+  as its receive window, so the phone never has more than that in flight upstream. A workaround to test
+  for the upload freeze (`notes/06-test-log.md` #21-#22). Applies to new connections.
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and

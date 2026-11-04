@@ -17,6 +17,7 @@ sealed class Settings
     public bool SaveLogs { get; set; } = true;
     public bool TraceSegments { get; set; }
     public bool SingleAck { get; set; }
+    public bool SmallUploadWindow { get; set; }
     public int GraphSeconds { get; set; } = 120;
 
     static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GnuBoxShare");
@@ -70,6 +71,7 @@ sealed class MainForm : Form
     readonly CheckBox _chkLogs = new() { Text = "Save logs for analysis", AutoSize = true };
     readonly CheckBox _chkTrace = new() { Text = "Log TCP segments", AutoSize = true };
     readonly CheckBox _chkSingleAck = new() { Text = "Test: one ACK per segment", AutoSize = true };
+    readonly CheckBox _chkSmallUp = new() { Text = "Test: small upload window", AutoSize = true };
     readonly LinkLabel _openLogs = new() { Text = "open the logs folder", AutoSize = true, Margin = new Padding(0, 6, 3, 3) };
     DiagFiles? _files;
     readonly SpeedGraph _graph = new() { Dock = DockStyle.Fill, Margin = new Padding(3, 0, 3, 6) };
@@ -130,6 +132,15 @@ sealed class MainForm : Form
             _settings.Save();
             Log.Info(_chkSingleAck.Checked ? "test: one ACK per segment" : "normal ACKs (at once + window update)");
         };
+        _chkSmallUp.Checked = _settings.SmallUploadWindow;
+        Nat.UploadWindow = _settings.SmallUploadWindow ? 2720 : 0;
+        _chkSmallUp.CheckedChanged += (_, _) =>
+        {
+            _settings.SmallUploadWindow = _chkSmallUp.Checked;
+            Nat.UploadWindow = _chkSmallUp.Checked ? 2720 : 0;
+            _settings.Save();
+            Log.Info(_chkSmallUp.Checked ? "test: small upload window (2720 B)" : "normal upload window (64 KB)");
+        };
         _chkShortQueue.Checked = _settings.ShortQueue;
         _chkShortQueue.CheckedChanged += (_, _) =>
         {
@@ -146,7 +157,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.5 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.6 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };
@@ -199,7 +210,9 @@ sealed class MainForm : Form
 
         // options
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs, _chkTrace, _chkSingleAck });
+        opts.Controls.AddRange(new Control[] { _chkAuto, _chkBoot, _chkTray, _chkVerbose, _chkRequests, _chkShortQueue, _chkLogs, _openLogs, _chkTrace, _chkSingleAck, _chkSmallUp });
+        _tips.SetToolTip(_chkSmallUp, "Test: the phone may send only 2 segments (2720 B) before GnuBox Share's acknowledgement,\n" +
+            "so its PPP / Bluetooth send queue never fills (the upload freeze, test log #21-22). Applies to new connections.");
         _tips.SetToolTip(_chkSingleAck, "Test: acknowledge the phone's data once, after it went to the server,\n" +
             "instead of at once and again as a window update (half the packets to the phone while it uploads).");
         _tips.SetToolTip(_chkTrace, "Debugging: writes every TCP segment to and from the phone into the log file\n" +
@@ -346,7 +359,7 @@ sealed class MainForm : Form
         _diagHist.Clear();
         _files?.Watch(_status);
         Log.Info($"sharing started: GnuBox Share {Application.ProductVersion.Split('+')[0]}, {Environment.OSVersion}, .NET {Environment.Version}, " +
-                 $"short send queue {(_settings.ShortQueue ? "on" : "off")}, one ACK per segment {(_settings.SingleAck ? "on" : "off")}, TCP segments logged {(_settings.TraceSegments ? "yes" : "no")}");
+                 $"short send queue {(_settings.ShortQueue ? "on" : "off")}, one ACK per segment {(_settings.SingleAck ? "on" : "off")}, small upload window {(_settings.SmallUploadWindow ? "on" : "off")}, TCP segments logged {(_settings.TraceSegments ? "yes" : "no")}");
         _last = (DateTime.UtcNow, 0, 0);
         _graph.ResetPeaks();
         _cts = new CancellationTokenSource();

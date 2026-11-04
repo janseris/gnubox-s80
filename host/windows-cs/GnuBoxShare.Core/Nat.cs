@@ -43,6 +43,10 @@ public sealed class Nat
     /// (with the full window), instead of at once and again as a window update.</summary>
     public static volatile bool SingleAck;
 
+    /// <summary>Test: the most the phone may send before our acknowledgement (0 = the normal
+    /// 64 KB window). A small value keeps the phone's PPP / Bluetooth send queue from filling up.</summary>
+    public static volatile int UploadWindow;
+
     internal static string FlagText(byte f) =>
         ((f & Ip.Syn) != 0 ? "S" : "") + ((f & Ip.Fin) != 0 ? "F" : "") + ((f & Ip.Rst) != 0 ? "R" : "") +
         ((f & Ip.Psh) != 0 ? "P" : "") + ((f & Ip.Ack) != 0 ? "." : "");
@@ -368,6 +372,8 @@ sealed class TcpConn
     void SendSeg(byte flags, ReadOnlySpan<byte> data = default, uint? seq = null, int mss = 0)
     {
         int win = Math.Max(0, RecvWindow - _toServer.Count - _sendingBytes);
+        int cap = Nat.UploadWindow;
+        if (cap > 0 && win > cap) win = cap;
         if (Nat.TraceSegments)
             Log.Detail($"seg c{_no} >phone {Nat.FlagText(flags)} seq {(seq ?? _sndNxt) - _iss} ack {_rcvNxt - _irs} len {data.Length} win {win}" +
                 $" | toServer {_toServer.Count} sending {_sendingBytes} pending {_pending.Count} unacked {_unacked.Count} {_state}");

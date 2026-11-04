@@ -361,3 +361,18 @@ tricks/networking.md` section 11).
   the phone during uploads; checked with the simulated phone: 4 x 40 KB up, 1 MB down identical).
   Next: the upload test with it on; and, if possible, the same test over Android BlueDUN++ (a
   normal TCP stack with delayed ACKs) to see whether the freeze depends on the host.
+
+## #22 Upload freeze, second run: not the double ACK, not connection reuse (2026-11-04, 01:14-01:19) [device: user]
+GnuBox Share 1.5 with *Test: one ACK per segment* on, segments logged; NetTest 1.3's upload test.
+
+- The freeze came **during the first POST on a fresh connection**: the phone sent 27.8 KB in ~1 s
+  (~28 kB/s), every segment acked at once (one ACK each, 64 KB window), then nothing more for 5+
+  minutes, no retransmission, no new connection. All 8 POSTs counted as stalled.
+- So neither the double ACK nor a reused connection is the trigger. What both freezes share: the
+  phone uploading steadily with up to its 16 KB send window in flight, i.e. its PPP / BTCOMM send
+  queue full. With #21 (the phone could still send its PPP hang-up later) the likely mechanism:
+  the PPP NIF flowed the IP stack off when its queue to BTCOMM was full, and the "can send again"
+  never came. Maps' fresh-connection uploads (1.5 MB on 3 Nov) got through by luck or timing.
+- PC-side workaround to test: GnuBox Share 1.6 *Test: small upload window* advertises only 2720 B
+  (2 segments) to the phone, so it never has more in flight and its queue never fills. Checked with
+  the simulated phone: uploads 22-26 kB/s (31 without), downloads unchanged (1 MB identical).
