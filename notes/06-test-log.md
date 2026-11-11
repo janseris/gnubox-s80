@@ -445,3 +445,8 @@ NetTest 1.4 Quick, same 40 files (755 KB a run) as #19 (phone's BTCOMM):
 0 errors. **The port works and matches the phone's own driver** (within a few %, runs 2 and 7 lower).
 Then *big buffers* (8192 / 4096 / 32768): Connect **stuck at stage 2750** (port open, no Bluetooth
 connection reached GnuBox Share). Cause unknown yet: needs the driver log.
+After ~3 min stuck at 2750 GnuBox stopped responding and could not be closed -> phone restart. That
+fits ESOCK left in *exclusive mode* for the driver's session (BTCOMM's "locker",
+`RSocketServ::SetExclusiveMode`): then no other ESOCK client gets served. BTCOMM leaves the lock on when
+a locked action fails (e.g. opening the RFCOMM socket -> Error() without StopLocker). 2.9.4: unlock on
+every move to the error state. The actual cause of the stall still needs the log.

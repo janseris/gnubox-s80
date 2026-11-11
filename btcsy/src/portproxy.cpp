@@ -487,6 +487,13 @@ void CBTPortProxy::Close()
 void CBTPortProxy::MoveToErrorState()
 	{
 	LOG_FUNC
+	// GnuBox: never leave ESOCK in exclusive mode for this session (the locker) when an error
+	// ends a locked action early - every other ESOCK client (apps, GnuBox) would hang
+	if (IsLockerOn())
+		{
+		LOG(_L("error with the ESOCK lock on: unlocking"));
+		StopLocker();
+		}
 	iState=&iPortStateFactory->GetState(CBTPortStateFactory::EError);	
 	// Notify the error state as we move in to it about the current error.
 	iState->Error(this,iLastError);

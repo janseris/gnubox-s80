@@ -861,7 +861,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.3 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.4 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:
