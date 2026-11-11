@@ -395,3 +395,12 @@ connecting the port brought down the comms server. No log in that build. GnuBox 
 driver logs every function to `C:\Logs\GnuBtCom\gnubtcom.txt`; NetTest sends it to the PC after the reboot.
 Suspects: the ESOCK session made in a helper thread and shared (EKA1 handle ownership), the SDP query
 structures, the registry lookup from the comms thread.
+
+### #23, second run with the log (2026-11-11 23:54) [device: user]
+The phone again restarted (lines disappear from the screen, then reboot). GNUBTCOM's log
+(`uploads/2026-11-11T22-58-19-858Z_gnubtcom.txt`): module loaded, port 0 opened (buffers 1024/1024/4096),
+SetRole, SetConfig; C32 loads the module a second time and drops the copy (factory created and destroyed,
+normal); then GetRole, GetConfig, SetConfig, SetReceiveBufferLength, ResetBuffers, the first StartWrite
+(NetDial) -> Idle::Write -> `TBTPortStateIdle::SockServConnect` = last line. So the restart happens while
+creating/starting the helper thread that connects to ESOCK (Symbian^3 design). GnuBox 2.9.2: connects to
+ESOCK directly instead (7.0s has ESOCK in its own thread, and this runs on an asynchronous RComm::Write).

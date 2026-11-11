@@ -73,6 +73,20 @@ CSockServConnector::~CSockServConnector()
 
 void CSockServConnector::SockServConnect(TRequestStatus& aStatus)
 	{
+#ifndef GNUBTCOM_CONNECTOR_THREAD
+	// GnuBox, 7.0s: Symbian^3 connects to ESOCK from a helper thread and shares the session
+	// (C32 and ESOCK share a thread there). On the 9300 creating/running that thread from the
+	// comms thread restarted the phone (log: last line TBTPortStateIdle::SockServConnect).
+	// On 7.0s ESOCK has its own thread and this is called from an asynchronous client request
+	// (RComm::Write/Read), so a direct, synchronous connect does not deadlock.
+	LOG(_L("SockServConnect: connecting to ESOCK directly"))
+	iClientStatus = &aStatus;
+	*iClientStatus = KRequestPending;
+	TInt err = iSockServ.Connect();
+	LOG1(_L("SockServConnect: RSocketServ::Connect %d"), err)
+	User::RequestComplete(iClientStatus, err);
+	return;
+#else
 	TThreadFunction connectorThreadFunction(RunConnectorThread);
 	iClientStatus = &aStatus;
 	*iClientStatus = KRequestPending;
@@ -102,6 +116,7 @@ void CSockServConnector::SockServConnect(TRequestStatus& aStatus)
 		// Mark connector thread ready to run
 		iConnectorThread.Resume();
 		}
+#endif
 	}
 
 void CSockServConnector::RunL()
