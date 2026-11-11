@@ -1,0 +1,26 @@
+// gnubtcom.mmp - GNUBTCOM.CSY: Symbian's BTCOMM serial-over-Bluetooth driver (EPL v1.0,
+// from the Symbian Foundation sources), ported to Symbian OS 7.0s / Series 80 so GnuBox can
+// change its buffers. Port name GNUBTCOM::0, uses the same registry default device as BTCOMM::0.
+TARGET          gnubtcom.csy
+TARGETTYPE      dll
+UID             0x10005054 0x0A5D10A5
+
+SOURCEPATH      ..\src
+SOURCE          btcomm.cpp
+SOURCE          locker.cpp
+SOURCE          portproxy.cpp
+SOURCE          portstate.cpp
+SOURCE          states.cpp
+SOURCE          reader.cpp
+SOURCE          writer.cpp
+SOURCE          btcommutil.cpp
+SOURCE          sdpclientcsy.cpp
+SOURCE          BTSimTimer.cpp
+SOURCE          sockservconnector.cpp
+
+USERINCLUDE     ..\src
+SYSTEMINCLUDE   \epoc32\include
+
+LIBRARY         euser.lib efsrv.lib c32.lib esock.lib bluetooth.lib btregistry.lib sdpdatabase.lib
+
+DEFFILE         gnubtcom.def

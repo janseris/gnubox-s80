@@ -1,0 +1,6 @@
+// bld.inf - GNUBTCOM.CSY, GnuBox's Bluetooth serial port driver (a port of Symbian's BTCOMM)
+PRJ_PLATFORMS
+ARMI
+
+PRJ_MMPFILES
+gnubtcom.mmp

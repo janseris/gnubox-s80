@@ -26,6 +26,9 @@
 
 _LIT(KModemCsy, "BTCOMM");
 _LIT(KModemPort, "BTCOMM::0");
+// GnuBox's own Bluetooth serial driver (btcsy/): same registry default device as BTCOMM::0
+_LIT(KOwnCsy, "GNUBTCOM");
+_LIT(KOwnPort, "GNUBTCOM::0");
 _LIT(KModemTsy, "PHONETSY");
 _LIT(KCsdAgent, "CSD.agt");
 _LIT(KPppNif, "PPP");
@@ -150,7 +153,7 @@ static void TryBool(CCommsDbTableView& aView, const TText* aCol, TBool aValue, M
 // --------------------------------------------------------------------------
 // ModemBearer "GnuBox BT"
 
-static TUint32 CreateModemL(CCommsDatabase& aDb, MGnuboxLog& aLog)
+static TUint32 CreateModemL(CCommsDatabase& aDb, TInt aBtDriver, MGnuboxLog& aLog)
 	{
 	CCommsDbTableView* view = aDb.OpenTableLC(TPtrC(MODEM_BEARER));
 	TUint32 id = FindByNameL(*view, KGnuboxModemName);
@@ -195,8 +198,11 @@ static TUint32 CreateModemL(CCommsDatabase& aDb, MGnuboxLog& aLog)
 	view->WriteTextL(TPtrC(COMMDB_NAME), KGnuboxModemName);
 	TryText(*view, MODEM_AGENT, KCsdAgent, aLog);
 	TryText(*view, MODEM_NIF_NAME, KPppNif, aLog);
-	view->WriteTextL(TPtrC(MODEM_PORT_NAME), KModemPort);
-	view->WriteTextL(TPtrC(MODEM_CSY_NAME), KModemCsy);
+	TBool own = aBtDriver != EGnuboxBtSymbian;
+	const TDesC& port = own ? KOwnPort() : KModemPort();
+	view->WriteTextL(TPtrC(MODEM_PORT_NAME), port);
+	view->WriteTextL(TPtrC(MODEM_CSY_NAME), own ? KOwnCsy() : KModemCsy());
+	LogD(aLog, _L("Bluetooth serial port: %S"), &port);
 	view->WriteTextL(TPtrC(MODEM_TSY_NAME), KModemTsy);
 	TryUint(*view, MODEM_DATA_BITS, EData8, aLog);
 	TryUint(*view, MODEM_STOP_BITS, EStop1, aLog);
@@ -371,12 +377,12 @@ static void BeginLC(CCommsDatabase& aDb)
 	CleanupStack::PushL(TCleanupItem(RollbackOnLeave, &aDb));
 	}
 
-void GnuboxCommDb::CreateRecordsL(MGnuboxLog& aLog, TInt aMode, TBool aCompress)
+void GnuboxCommDb::CreateRecordsL(MGnuboxLog& aLog, TInt aMode, TBool aCompress, TInt aBtDriver)
 	{
 	aLog.Detail(_L("Creating access point records..."));
 	CCommsDatabase* db = OpenDbLC();
 	BeginLC(*db);
-	TUint32 modem = CreateModemL(*db, aLog);
+	TUint32 modem = CreateModemL(*db, aBtDriver, aLog);
 	// an access point called "GnuBox BT" made in Control panel is adopted:
 	// its own DialOutISP record is reused, only the bearer is switched
 	TUint32 adoptIsp = 0, weight = 1;

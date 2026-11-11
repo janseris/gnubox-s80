@@ -88,6 +88,14 @@ public:
 typedef CArrayFixFlat<TGnuboxIap> CGnuboxIapArray;
 
 // persistent settings
+// which Bluetooth serial driver (CSY) the access point uses
+enum TGnuboxBtDriver
+	{
+	EGnuboxBtSymbian = 0,	// the phone's BTCOMM
+	EGnuboxBtOwn = 1,		// GNUBTCOM.CSY (port of BTCOMM), Symbian's buffer sizes
+	EGnuboxBtOwnBig = 2		// GNUBTCOM.CSY with bigger buffers (gnubtcom.ini)
+	};
+
 class TGnuboxSettings
 	{
 public:
@@ -105,6 +113,7 @@ public:
 	TBool iUseForAll;		// rank-1 preference = GnuBox BT, no prompt
 	TInt iPrevPrefDialog;	// dialog preference before (-1 = none)
 	TBool iCompress;		// PPP header + data compression
+	TInt iBtDriver;			// TGnuboxBtDriver
 	};
 
 // --------------------------------------------------------------------------
@@ -112,7 +121,7 @@ public:
 class GnuboxCommDb
 	{
 public:
-	static void CreateRecordsL(MGnuboxLog& aLog, TInt aMode, TBool aCompress);
+	static void CreateRecordsL(MGnuboxLog& aLog, TInt aMode, TBool aCompress, TInt aBtDriver);
 	static TBool ApplyModeL(MGnuboxLog& aLog, TInt aMode);	// EFalse if no records yet
 	static void RemoveRecordsL(MGnuboxLog& aLog);
 	static void ShowStatusL(MGnuboxLog& aLog);
@@ -300,6 +309,7 @@ private:
 	void CmdToggleUseForAllL();
 	void CmdToggleCompression();
 	void CmdToggleTcpWindowL();
+	void CmdSetBtDriverL(TInt aDriver);
 	void CmdSetDefaultL(TInt aIndex);	// -1 = ask every time
 	void OpenDeviceMenuL();
 	void CmdSearchDeviceL();

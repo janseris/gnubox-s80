@@ -376,3 +376,14 @@ GnuBox Share 1.5 with *Test: one ACK per segment* on, segments logged; NetTest 1
 - PC-side workaround to test: GnuBox Share 1.6 *Test: small upload window* advertises only 2720 B
   (2 segments) to the phone, so it never has more in flight and its queue never fills. Checked with
   the simulated phone: uploads 22-26 kB/s (31 without), downloads unchanged (1 MB identical).
+
+## #23 GnuBox 2.9: own Bluetooth serial driver (GNUBTCOM.CSY) - to test [device: user]
+
+Built, not yet run on the phone. `btcsy/` is Symbian's BTCOMM ported to 7.0s (see its README); GnuBox
+*Settings > Bluetooth driver* switches the access point between `BTCOMM::0` and `GNUBTCOM::0`, the
+second with Symbian's buffers (1 KB reads/writes, 4 KB receive buffer) or big ones (8 KB / 4 KB / 32 KB,
+from `C:\System\Data\gnubtcom.ini`). Plan, PC = GnuBox Share (C#), NetTest Quick each time:
+1. *the phone's* - baseline (~34 kB/s expected).
+2. *GnuBox's (test)* - must connect and match the baseline; if it doesn't connect, the port is wrong.
+3. *GnuBox's, big buffers* - the real question: faster than ~35 kB/s?
+Untested parts of the port: the SDP query structures (from Symbian^3's `sdpkey.h`), the registry lookup.
