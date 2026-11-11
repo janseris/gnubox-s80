@@ -512,6 +512,7 @@ void CGnuboxAppUi::CmdToggleCompression()
 _LIT(KGnuBtComCsy, "gnubtcom.csy");
 _LIT(KGnuBtComDir, "\\System\\Libs\\");
 _LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
+_LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
 _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
@@ -539,6 +540,10 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		}
 	else
 		fs.Delete(KGnuBtComIni);
+	// the driver's diagnostic log (C:\Logs\GnuBtCom\gnubtcom.txt) is written only while
+	// its folder exists; NetTest sends it to the PC
+	if (aDriver != EGnuboxBtSymbian)
+		fs.MkDirAll(KGnuBtComLogDir);
 	iSettings.iBtDriver = aDriver;
 	iSettings.Save(fs);
 	switch (aDriver)
@@ -555,6 +560,8 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
 		break;
 		}
+	if (aDriver != EGnuboxBtSymbian)
+		iView->Log(_L("It logs to C:\\Logs\\GnuBtCom (NetTest sends it to the PC)."));
 	iView->Log(_L("Takes effect at the next Connect."));
 	if (iConnection->State() != EConnIdle)
 		iView->Log(_L("Disconnect and Connect again to apply it."));
@@ -829,7 +836,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.1 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

@@ -10,15 +10,32 @@
 #endif
 
 #define LOG_COMPONENT_BT_COMM "gnubtcom"
+#define FTRACE(a)
+#define CLOSE_LOGGER
+#define CONNECT_LOGGER
+#define OPEN_LOGGER
+
+// Diagnostic log: C:\Logs\GnuBtCom\gnubtcom.txt, written only if that folder exists
+// (Symbian's file logger skips the write otherwise). Every function entered and the
+// original BTCOMM log lines. Off when GNUBTCOM_NOLOG is defined.
+#ifndef GNUBTCOM_NOLOG
+#include <flogger.h>
+_LIT(KGnuBtLogDir, "GnuBtCom");
+_LIT(KGnuBtLogFile, "gnubtcom.txt");
+void GnuBtLogFunc(const char* aFunc);
+#define LOG_FUNC GnuBtLogFunc(__PRETTY_FUNCTION__);
+#define LOG_STATIC_FUNC GnuBtLogFunc(__PRETTY_FUNCTION__);
+#define LOG(a) RFileLogger::Write(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, a);
+#define LOG1(a,b) RFileLogger::WriteFormat(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, a, b);
+#define LOG2(a,b,c) RFileLogger::WriteFormat(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, a, b, c);
+#define LOG3(a,b,c,d) RFileLogger::WriteFormat(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, a, b, c, d);
+#else
 #define LOG_FUNC
 #define LOG_STATIC_FUNC
 #define LOG(a)
 #define LOG1(a,b)
 #define LOG2(a,b,c)
 #define LOG3(a,b,c,d)
-#define FTRACE(a)
-#define CLOSE_LOGGER
-#define CONNECT_LOGGER
-#define OPEN_LOGGER
+#endif
 
 #endif

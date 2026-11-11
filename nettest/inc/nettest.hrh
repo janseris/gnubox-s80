@@ -10,7 +10,8 @@ enum TNetTestCommands
 	ENtCmdSend,
 	ENtCmdClear,
 	ENtCmdSmall,
-	ENtCmdUpload
+	ENtCmdUpload,
+	ENtCmdDriverLog
 	};
 
 #endif

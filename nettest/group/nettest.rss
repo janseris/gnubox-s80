@@ -46,6 +46,7 @@ RESOURCE MENU_PANE r_nettest_menu
 		MENU_ITEM { command = ENtCmdUpload; txt = "Upload test (8 POSTs of 40 KB)"; },
 		MENU_ITEM { command = ENtCmdStop; txt = "Stop"; },
 		MENU_ITEM { command = ENtCmdSend; txt = "Send results to the PC again"; },
+		MENU_ITEM { command = ENtCmdDriverLog; txt = "Send the Bluetooth driver log to the PC"; },
 		MENU_ITEM { command = ENtCmdClear; txt = "Clear the screen"; flags = EEikMenuItemSeparatorAfter; },
 		MENU_ITEM { command = EEikCmdExit; txt = "Exit"; }
 		};

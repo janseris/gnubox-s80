@@ -109,6 +109,7 @@ void CSockServConnector::RunL()
 	// Remove ourselves from the active scheduler so we
 	// don't get in the way of other active objects
 	Deque();
+	LOG2(_L("connector thread ended: %d, exit type %d"), iStatus.Int(), iConnectorThread.ExitType())
 	
 	// if the thread returned something other than
 	// KErrNone then the Esock connect & share didn't

@@ -387,3 +387,11 @@ from `C:\System\Data\gnubtcom.ini`). Plan, PC = GnuBox Share (C#), NetTest Quick
 2. *GnuBox's (test)* - must connect and match the baseline; if it doesn't connect, the port is wrong.
 3. *GnuBox's, big buffers* - the real question: faster than ~35 kB/s?
 Untested parts of the port: the SDP query structures (from Symbian^3's `sdpkey.h`), the registry lookup.
+
+### #23, first run (2026-11-11 ~23:40) [device: user]
+*GnuBox's (test)* (Symbian's buffer sizes): the phone **crashed after stage 2750** (KCsdScannedScript; next
+would be 3000, the agent opening the port). So GNUBTCOM.CSY was loaded and something in opening or
+connecting the port brought down the comms server. No log in that build. GnuBox 2.9.1 + NetTest 1.4: the
+driver logs every function to `C:\Logs\GnuBtCom\gnubtcom.txt`; NetTest sends it to the PC after the reboot.
+Suspects: the ESOCK session made in a helper thread and shared (EKA1 handle ownership), the SDP query
+structures, the registry lookup from the comms thread.

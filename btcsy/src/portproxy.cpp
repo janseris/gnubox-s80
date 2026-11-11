@@ -139,6 +139,7 @@ void CBTPortProxy::ReadBufferSizes()
 	iLowWatermark=iCircBufLen/2;
 	if (iLowWatermark>iHighWatermark)
 		iLowWatermark=iHighWatermark;
+	LOG3(_L("buffers: read %d, write %d, receive %d"), iRecvBufLen, iSendBufLen, iCircBufLen)
 	}
 
 CBTPortProxy::CBTPortProxy(TUint32 aPortNo) 

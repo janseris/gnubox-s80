@@ -17,12 +17,21 @@
 #include "gnubtport.h"
 #include "btcommutil.h"
 
+#ifndef GNUBTCOM_NOLOG
+void GnuBtLogFunc(const char* aFunc)
+	{
+	RFileLogger::Write(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, TPtrC8((const TUint8*)aFunc));
+	}
+#endif
+
 void BTCommUtil::Panic(TBTCommPanic aPanic)
 	{
+	LOG1(_L("PANIC GnuBtCom %d"), aPanic)
 	User::Panic(KBTCommPanicName, aPanic);
 	}
 
 void BTCommUtil::Panic(TBTCommPanic aPanic, TInt aState)
 	{
+	LOG2(_L("PANIC GnuBtCom %d in state %d"), aPanic, aState)
 	User::Panic(KBTCommPanicName, (aPanic*KStatePanicMultiplier) + KStatePanicDelimiter + aState);
 	}

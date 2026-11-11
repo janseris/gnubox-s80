@@ -31,9 +31,17 @@ The buffer sizes come from the optional text file `C:\System\Data\gnubtcom.ini`:
 when the port opens. Limits: each at least 128, at most 256 KB, buffer at least twice the read.
 The socket is read again until `buffer - read` bytes wait for PPP, and restarts at half the buffer.
 
+## Diagnostic log
+
+While the folder `C:\Logs\GnuBtCom\` exists (GnuBox 2.9.1 makes it when you choose one of its
+drivers), every function the driver enters and BTCOMM's own log lines go to
+`C:\Logs\GnuBtCom\gnubtcom.txt` through Symbian's file logger. NetTest 1.4 *Send the Bluetooth
+driver log to the PC* posts it to the localserver. This slows the driver down; delete the folder
+for speed measurements (or build with `GNUBTCOM_NOLOG`).
+
 ## Changes from Symbian's BTCOMM
 
-- `gnubtport.h`: logging compiled out, `NONSHARABLE_CLASS` for GCC 2.9.
+- `gnubtport.h`: logging through `RFileLogger` (above), `NONSHARABLE_CLASS` for GCC 2.9.
 - No platform security (`PortPlatSecCapability` removed; 7.0s has none).
 - Default device: `CBTRegistry::GetDefaultCommPort()` (7.0s) instead of `RBTRegServ` /
   `RBTCommPortSettings`.

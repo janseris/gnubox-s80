@@ -107,6 +107,7 @@ public:
 	CNtPoster(RSocketServ& aSs, MNtObserver& aObs);
 	~CNtPoster();
 	void PostL(const TDesC8& aBody);
+	void PostL(const TDesC8& aBody, const TDesC8& aName, const TDesC& aDeleteAfter);
 private:
 	enum TState { EIdle, EConnecting, ESending, EReading };
 	void RunL();
@@ -123,6 +124,8 @@ private:
 	HBufC8* iData;
 	TBuf8<256> iAnswer;
 	TSockXfrLength iLen;
+	TBuf8<32> iName;
+	TFileName iDeleteAfter;	// deleted when the PC got it
 	};
 
 // the upload test: 40 KB POSTs, first 4 on one kept-open connection, then 4 each on a fresh one
@@ -183,6 +186,7 @@ public:
 	TBool Running() const { return iRunning; }
 	void SendResultsL();
 	void PostTextL(const TDesC8& aText);
+	void SendDriverLogL();
 	// from the connections
 	TInt NextFileIndex();
 	void FileDone(TInt aIndex, TInt aBytes, TInt aMs, TInt aFirstMs);
