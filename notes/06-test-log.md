@@ -427,3 +427,21 @@ Phone clock ~51 s behind the PC. GNUBTCOM log (`uploads/2026-11-11T23-20-08-159Z
 - Google in the browser **works** on GNUBTCOM (slowly); DNS did not break this time.
 GnuBox 2.9.3: log only while *Settings > GnuBox driver log* is on (checked once when the driver loads;
 off = no logger calls); SDP closed before the RFCOMM connect and up to 3 connect tries (for the -34).
+
+### #23, fifth run: 2.9.3, GNUBTCOM with Symbian's buffers, log off (2026-11-12 00:44-00:50) [device: user]
+NetTest 1.4 Quick, same 40 files (755 KB a run) as #19 (phone's BTCOMM):
+
+| Run | Conn. | Window | GNUBTCOM kB/s | BTCOMM #19 kB/s |
+|---|---|---|---|---|
+| 1 | 2 | 8 KB | 28.5 | 29.3 |
+| 2 | 2 | 16 KB | 26.9 | 30.9 |
+| 3 | 2 | 32 KB | 30.1 | 31.1 |
+| 4 | 2 | 64 KB | 31.1 | 31.1 |
+| 5 | 3 | 16 KB | 30.0 | 30.7 |
+| 6 | 3 | 32 KB | 30.9 | 30.7 |
+| 7 | 1 | 16 KB | 26.9 | 28.5 |
+| 8 | 1 | 64 KB | 28.1 | 28.6 |
+
+0 errors. **The port works and matches the phone's own driver** (within a few %, runs 2 and 7 lower).
+Then *big buffers* (8192 / 4096 / 32768): Connect **stuck at stage 2750** (port open, no Bluetooth
+connection reached GnuBox Share). Cause unknown yet: needs the driver log.
