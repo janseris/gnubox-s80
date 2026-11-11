@@ -310,6 +310,8 @@ private:
 	void CmdToggleCompression();
 	void CmdToggleTcpWindowL();
 	void CmdSetBtDriverL(TInt aDriver);
+	void CmdToggleBtLogL();
+	TBool BtLogOn();
 	void CmdSetDefaultL(TInt aIndex);	// -1 = ask every time
 	void OpenDeviceMenuL();
 	void CmdSearchDeviceL();

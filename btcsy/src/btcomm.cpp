@@ -100,6 +100,7 @@ void CBTPortFactory::ConstructL()
 **/
 	{
 	CONNECT_LOGGER
+	GnuBtLogInit();
 	LOG_FUNC
 
 	iPortStateFactory=CBTPortStateFactory::NewL();

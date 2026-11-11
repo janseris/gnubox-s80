@@ -274,6 +274,7 @@ private:
 	TInt					iCircBufLen;	// received, waiting for the client (PPP)
 	TInt					iHighWatermark;	// stop reading the socket at this much waiting
 	TInt					iLowWatermark;	// start again at this
+	TInt					iConnectTries;	// RFCOMM connects that failed
 
 #ifdef _DEBUG
 	TInt					iReadsPending; //for debugging calls to the reader

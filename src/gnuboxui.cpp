@@ -540,10 +540,6 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		}
 	else
 		fs.Delete(KGnuBtComIni);
-	// the driver's diagnostic log (C:\Logs\GnuBtCom\gnubtcom.txt) is written only while
-	// its folder exists; NetTest sends it to the PC
-	if (aDriver != EGnuboxBtSymbian)
-		fs.MkDirAll(KGnuBtComLogDir);
 	iSettings.iBtDriver = aDriver;
 	iSettings.Save(fs);
 	switch (aDriver)
@@ -560,11 +556,36 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
 		break;
 		}
-	if (aDriver != EGnuboxBtSymbian)
-		iView->Log(_L("It logs to C:\\Logs\\GnuBtCom (NetTest sends it to the PC)."));
 	iView->Log(_L("Takes effect at the next Connect."));
 	if (iConnection->State() != EConnIdle)
 		iView->Log(_L("Disconnect and Connect again to apply it."));
+	}
+
+// the driver's diagnostic log (C:\Logs\GnuBtCom\gnubtcom.txt): on while its folder exists
+// when the driver loads; NetTest sends it to the PC. Slows the driver to a few kB/s.
+TBool CGnuboxAppUi::BtLogOn()
+	{
+	TEntry entry;
+	return iEikonEnv->FsSession().Entry(KGnuBtComLogDir, entry) == KErrNone;
+	}
+
+void CGnuboxAppUi::CmdToggleBtLogL()
+	{
+	RFs& fs = iEikonEnv->FsSession();
+	if (BtLogOn())
+		{
+		CFileMan* fm = CFileMan::NewL(fs);
+		fm->RmDir(KGnuBtComLogDir);
+		delete fm;
+		iView->Log(_L("GnuBox driver log off."));
+		}
+	else
+		{
+		User::LeaveIfError(fs.MkDirAll(KGnuBtComLogDir));
+		iView->Log(_L("GnuBox driver log on: C:\\Logs\\GnuBtCom (NetTest sends it to the"));
+		iView->Log(_L("PC). It makes the driver very slow: for finding faults only."));
+		}
+	iView->Log(_L("Applies when the driver is next loaded (restart the phone to be sure)."));
 	}
 
 void CGnuboxAppUi::CmdToggleTcpWindowL()
@@ -679,6 +700,7 @@ void CGnuboxAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane)
 			iSettings.iBtDriver == EGnuboxBtOwn ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnBig,
 			iSettings.iBtDriver == EGnuboxBtOwnBig ? EEikMenuItemSymbolOn : 0);
+		aMenuPane->SetItemButtonState(EGnuboxCmdBtLog, BtLogOn() ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecNone,
 			iSettings.iSecurity == KBTDefaultServiceSecurityNone ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecAuth,
@@ -803,6 +825,9 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 	case EGnuboxCmdBtOwnBig:
 		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnBig));
 		break;
+	case EGnuboxCmdBtLog:
+		TRAP(err, CmdToggleBtLogL());
+		break;
 	case EGnuboxCmdUseForAll:
 		TRAP(err, CmdToggleUseForAllL());
 		break;
@@ -836,7 +861,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.2 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.3 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

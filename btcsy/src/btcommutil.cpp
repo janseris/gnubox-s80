@@ -14,10 +14,24 @@
 //
 
 #include <e32std.h>
+#include <f32file.h>
 #include "gnubtport.h"
 #include "btcommutil.h"
 
 #ifndef GNUBTCOM_NOLOG
+void GnuBtLogInit()
+	{
+	TBool on=EFalse;
+	RFs fs;
+	if (fs.Connect()==KErrNone)
+		{
+		TEntry entry;
+		on = fs.Entry(KGnuBtLogFolder, entry)==KErrNone;
+		fs.Close();
+		}
+	Dll::SetTls(on ? (TAny*)1 : NULL);
+	}
+
 void GnuBtLogFunc(const char* aFunc)
 	{
 	RFileLogger::Write(KGnuBtLogDir, KGnuBtLogFile, EFileLoggingModeAppend, TPtrC8((const TUint8*)aFunc));

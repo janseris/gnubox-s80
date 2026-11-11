@@ -975,6 +975,14 @@ void TBTPortStateSDPAttributeListRetrieved::DoLockedAction(CBTPortProxy* aContex
 	TPckgBuf<TUint8> aSig;
 	RSocket& sock=aContext->iSocket;
 	RSocketServ ss=aContext->iSockServ;
+	// GnuBox: the SDP session is done; close it before the RFCOMM connect (the first connect
+	// with SDP still open failed with -34 on the 9300 every time)
+	if(aContext->IsNetDbInUse())
+		{
+		aContext->iNetDatabase.Close();
+		aContext->SetNetDbNotInUse();
+		LOG(_L("SDP session closed before the RFCOMM connect"));
+		}
 	// note this needs to be a reference.
 	TInt ret=sock.Open(ss,KBTAddrFamily,KSockStream,KRFCOMM);
 	if (ret!=KErrNone)
@@ -1034,6 +1042,15 @@ void TBTPortStateConnecting::DoRunL(CBTPortProxy* aContext)
 	{
 	LOG_FUNC
 	TInt ret=aContext->iStatus.Int();
+	if (ret!=KErrNone && aContext->iConnectTries<2)
+		{// GnuBox: try the RFCOMM connect again (up to 3 times)
+		aContext->iConnectTries++;
+		LOG2(_L("RFCOMM connect failed %d, try %d again"), ret, aContext->iConnectTries+1);
+		aContext->iSocket.Close();
+		aContext->SetState(iFactory->GetState(CBTPortStateFactory::ESDPAttribListRetrieved));
+		aContext->StartLocker();
+		return;
+		}
 	if (ret!=KErrNone)
 		{// didn't manage to succeed with connect.
 		Error(aContext,ret);

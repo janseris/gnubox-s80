@@ -418,3 +418,12 @@ Phone clock ~51 s behind the PC. GNUBTCOM log (`uploads/2026-11-11T23-20-08-159Z
   DNS had worked minutes before (00:11). So the phone's resolver no longer accepts answers since the
   GNUBTCOM session - phone state, not the link. To check: restart the phone, BTCOMM + a web page; then
   GNUBTCOM + NetTest Quick (by IP, no DNS).
+
+### #23, fourth run: 2.9.2 with the log on (2026-11-12 00:24-00:31) [device: user]
+- First Connect -34 again (GnuBox Share was listening this time), second Connect works.
+- NetTest Quick: every file -25, ~4 kB/s, phone window full 100%, round trips 2-5 s; requests "no response
+  / connection closed" in between. The driver log shows why: 50-100 log lines a second, ~10 lines per
+  1 KB read or write -> the logging itself is the limit. The log has no errors.
+- Google in the browser **works** on GNUBTCOM (slowly); DNS did not break this time.
+GnuBox 2.9.3: log only while *Settings > GnuBox driver log* is on (checked once when the driver loads;
+off = no logger calls); SDP closed before the RFCOMM connect and up to 3 connect tries (for the -34).

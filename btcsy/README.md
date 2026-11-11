@@ -33,11 +33,12 @@ The socket is read again until `buffer - read` bytes wait for PPP, and restarts 
 
 ## Diagnostic log
 
-While the folder `C:\Logs\GnuBtCom\` exists (GnuBox 2.9.1 makes it when you choose one of its
-drivers), every function the driver enters and BTCOMM's own log lines go to
+If the folder `C:\Logs\GnuBtCom\` exists when the driver is loaded (GnuBox 2.9.3: *Settings >
+GnuBox driver log*), every function the driver enters and BTCOMM's own log lines go to
 `C:\Logs\GnuBtCom\gnubtcom.txt` through Symbian's file logger. NetTest 1.4 *Send the Bluetooth
-driver log to the PC* posts it to the localserver. This slows the driver down; delete the folder
-for speed measurements (or build with `GNUBTCOM_NOLOG`).
+driver log to the PC* posts it to the localserver. Each line is a file logger call: with the log on
+the driver manages only 50-100 lines a second, i.e. a few kB/s (measured: ~4 kB/s, round trips of
+2-5 s). Off, the check is one `Dll::Tls()` per line. `GNUBTCOM_NOLOG` compiles it out.
 
 ## Changes from Symbian's BTCOMM
 
@@ -47,7 +48,10 @@ for speed measurements (or build with `GNUBTCOM_NOLOG`).
   `RBTCommPortSettings`.
 - No security settings on the outgoing RFCOMM connection (7.0s' `TRfcommSockAddr` has none); the
   PC may still require authentication/encryption of the paired link.
-- `RThread::Rename` instead of `User::RenameThread`; an `E32Dll` entry point.
+- ESOCK is connected directly, not from a helper thread (creating that thread in the comms thread
+  restarted the 9300); an `E32Dll` entry point.
+- The SDP session is closed before the RFCOMM connect, and a failed RFCOMM connect is tried up to
+  3 times (the first connect failed with -34 every time).
 - Names: `GNUBTCOM`, panic category `GnuBtCom`; UID3 0x0A5D10A5.
 - Buffer sizes configurable (above); Symbian's values are the default.
 
