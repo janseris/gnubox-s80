@@ -404,3 +404,17 @@ normal); then GetRole, GetConfig, SetConfig, SetReceiveBufferLength, ResetBuffer
 (NetDial) -> Idle::Write -> `TBTPortStateIdle::SockServConnect` = last line. So the restart happens while
 creating/starting the helper thread that connects to ESOCK (Symbian^3 design). GnuBox 2.9.2: connects to
 ESOCK directly instead (7.0s has ESOCK in its own thread, and this runs on an asynchronous RComm::Write).
+
+### #23, third run: GnuBox 2.9.2 connects (2026-11-12 00:14-00:21) [device: user]
+Phone clock ~51 s behind the PC. GNUBTCOM log (`uploads/2026-11-11T23-20-08-159Z_gnubtcom.txt`):
+- 1st try: ESOCK connect OK, L2CAP loaded, SDP found the service and channel, RFCOMM connect **-34**
+  (KErrCouldNotConnect) - at that moment GnuBox Share had just dropped the previous link and was only
+  re-listening (PC 00:14:57), so most likely a race, not the driver.
+- 2nd try: **RFCOMM connected, PPP up** (PC: "connected, frame size 666", LCP, IP up within 1 s), data in
+  both directions through the driver for 2 min 20 s, then the phone hung up; the driver closed cleanly.
+- But no app traffic: every DNS lookup was answered by GnuBox Share (example.com, A + "no IPv6") and the
+  phone asked again every ~4 s (AAAA, AAAA, A x4), then gave up (-5120). **The same then happened on the
+  phone's own BTCOMM** (00:18, 00:20) while TCP to an IP address worked (NetTest sent the log, 200 OK).
+  DNS had worked minutes before (00:11). So the phone's resolver no longer accepts answers since the
+  GNUBTCOM session - phone state, not the link. To check: restart the phone, BTCOMM + a web page; then
+  GNUBTCOM + NetTest Quick (by IP, no DNS).
