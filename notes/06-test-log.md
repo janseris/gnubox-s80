@@ -533,3 +533,8 @@ The only door left in RFCOMM: **no credit-based flow control** (RFCOMM 1.0 flow 
 buffer is `KRfcommSAPBufferMultiple = 50` frames and flow stops by MSC/FCoff instead of credits. Set with
 `KRFCOMMFlowTypeCBFC` = false before connecting (the mux is then created without offering CBFC). The earlier
 *no credit flow* try (with frames + packet types) never reached the PC; GnuBox 2.10 tries it alone.
+
+### #23, 2.10 *no credit flow* alone (2026-11-12 13:35-13:41) [device: user]
+Connected (first time in this mode). NetTest Quick 29.5 / 27.5 / 28.7 / 28.2 / 28.4 / 29.8 / 27.4 / 27.7 kB/s,
+0 errors; GnuBox Share 34.3 kB/s in seconds with data. No gain, slightly lower. Not yet known whether the
+link really ran without credits (needs the driver log: the credit lines).
