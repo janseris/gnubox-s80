@@ -17,14 +17,18 @@ public:
 	static CGnuBtLinkTuner* NewL(CBTPortProxy* aProxy);
 	~CGnuBtLinkTuner();
 	void Start();
+	// GnuBox: start the locker again after aMicroSeconds (a delayed RFCOMM connect retry)
+	void RetryConnectLater(TInt aMicroSeconds);
 private:
 	CGnuBtLinkTuner(CBTPortProxy* aProxy);
+	void ConstructL();
 	void RunL();
 	void DoCancel();
 	void Issue();
 private:
 	CBTPortProxy* iProxy;
 	TLMPacketTypeBuf iPackets;
-	TInt iStep;		// 0: link manager ioctl, 1: HCI ioctl, 2: done
+	TInt iStep;		// 0: link manager ioctl, 1: HCI ioctl, 2: done, 3: retry timer
+	RTimer iTimer;
 	};
 #endif

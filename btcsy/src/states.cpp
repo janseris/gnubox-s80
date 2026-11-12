@@ -996,13 +996,16 @@ void TBTPortStateSDPAttributeListRetrieved::DoLockedAction(CBTPortProxy* aContex
 	// with the PC settles the final size (GnuBox Share logs it as "frame size")
 	if (aContext->iFrameSize>0)
 		{
-		TInt cur=0;
-		TPckgBuf<TInt> curBuf;
-		if (sock.GetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, curBuf)==KErrNone)
-			cur=curBuf();
-		TInt e1=sock.SetOpt(KL2CAPInboundMTU, KSolBtL2CAP, aContext->iFrameSize+5);
-		TInt e2=sock.SetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, aContext->iFrameSize);
-		LOG3(_L("frame size: default max %d, set L2CAP inbound MTU %d, RFCOMM max MTU %d"), cur, e1, e2);
+		// 7.0s: a TInt option gave KErrArgument (2.9.5 log); the MTU is a TUint16 there.
+		// The L2CAP inbound MTU option is not supported on an RFCOMM socket (KErrNotSupported).
+		TPckgBuf<TUint16> cur(0);
+		TInt e0=sock.GetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, cur);
+		TPckgBuf<TUint16> want((TUint16)aContext->iFrameSize);
+		TInt e1=sock.SetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, want);
+		TPckgBuf<TUint16> now(0);
+		TInt e2=sock.GetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, now);
+		LOG3(_L("frame size: max MTU was %d (get %d), set %d"), (TInt)cur(), e0, e1);
+		LOG2(_L("frame size: max MTU now %d (get %d)"), (TInt)now(), e2);
 		}
 	if (aContext->iFlags & KGnuBtFlagNoCreditFlow)
 		{
@@ -1066,7 +1069,9 @@ void TBTPortStateConnecting::DoRunL(CBTPortProxy* aContext)
 		LOG2(_L("RFCOMM connect failed %d, try %d again"), ret, aContext->iConnectTries+1);
 		aContext->iSocket.Close();
 		aContext->SetState(iFactory->GetState(CBTPortStateFactory::ESDPAttribListRetrieved));
-		aContext->StartLocker();
+		// 2.9.5 log: immediate retries fail the same way within the same second; wait 2 s
+		// (the timer then starts the locker -> TBTPortStateSDPAttributeListRetrieved::DoLockedAction)
+		aContext->iLinkTuner->RetryConnectLater(2000000);
 		return;
 		}
 	if (ret!=KErrNone)

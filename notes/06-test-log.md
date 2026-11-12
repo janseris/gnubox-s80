@@ -483,3 +483,10 @@ phone accept the frame size request?), GnuBox Share logs the phone's LCP options
 binary data carry ~12.5% escapes?) and accepts frames up to 1011; *big frames* now also asks the link
 manager for all ACL packet types (3/5-slot packets); *no credit flow* turns RFCOMM credit-based flow
 control off.
+
+### #23, driver log of a *big frames* connect (2.9.5, 2026-11-12 01:27-01:29) [device: user]
+`frame size: ... set L2CAP inbound MTU -5, RFCOMM max MTU -6`: the L2CAP option is not supported on an
+RFCOMM socket (KErrNotSupported), and the RFCOMM maximum MTU was refused with KErrArgument - the TInt
+option was the wrong size (the get failed too). So nothing was asked for; that's why the frame stayed 666.
+Also: the connect retries ran in the same second and all failed with -34 (one Connect needed a manual
+second try). 2.9.7: the MTU as a TUint16 (logs the value before and after), retries 2 s apart.
