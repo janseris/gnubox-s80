@@ -37,6 +37,7 @@ static const TInt KGnuBtComMaxLen=262144;
 // optional 5th number in the ini file: flags
 static const TInt KGnuBtFlagPacketTypes=1;	// allow all ACL packet types once connected
 static const TInt KGnuBtFlagNoCreditFlow=2;	// RFCOMM without credit-based flow control
+static const TInt KGnuBtFlagSocketBuffers=4;	// 32 KB socket receive/send buffers (more RFCOMM credits?)
 
 const TUint KCommLowUnit=0;
 const TInt KBtcommShutdownTimer=6000000; //2 secs
@@ -283,6 +284,7 @@ private:
 	TInt					iFrameSize;		// RFCOMM frame size to ask for (0: the stack's default)
 	TInt					iFlags;			// KGnuBtFlag*
 	CGnuBtLinkTuner*		iLinkTuner;
+	TUint					iCreditLogTick;	// last RFCOMM credit log line (log on only)
 
 #ifdef _DEBUG
 	TInt					iReadsPending; //for debugging calls to the reader

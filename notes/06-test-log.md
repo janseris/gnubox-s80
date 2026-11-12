@@ -502,3 +502,11 @@ the driver log shows reads completing and data handed to PPP, so what arrived wa
 01:37/01:40 (neither setting effective) worked. GnuBox Share 1.7: ACCM 0 - escaping costs <1%, not a factor.
 No credit flow: the RFCOMM connection never reached the PC. 2.9.8 splits the two: *all packet types* alone,
 *big frames only* alone.
+
+### #23, 2.9.8 *all packet types* alone (2026-11-12 01:58-02:02) [device: user]
+Connects and works (so 990-byte frames were what broke the 2.9.7 link). NetTest Quick 29.1 / 26.8 / 23.1 /
+29.9 / 30.2 / 27.2 / 25.0 / 22.9 kB/s, 0 errors; GnuBox Share 33.5 kB/s in seconds with data. **No gain**
+(if anything noisier/lower); the link manager accepted the request, so 3/5-slot packets were allowed and
+the speed is not set by the packet types the phone allows.
+Next (2.9.9): *big socket buffers* (32 KB KSORecvBuf/KSOSendBuf on the RFCOMM socket - does the phone grant
+more RFCOMM credits?), and with the log on, the RFCOMM receive/transmit credits once a second.

@@ -516,7 +516,8 @@ _LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
 _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
 // 2.9.7 with both of these: the phone's PPP got nothing usable (LCP restarted every second); one at a time:
 _LIT8(KGnuBtComFrames, "8192 4096 32768 0 1\r\n");	// ... flag 1: all ACL packet types
-_LIT8(KGnuBtComNoCredit, "8192 4096 32768 990 0\r\n");	// ... ask for 990-byte RFCOMM frames
+// 990-byte frames: refused below the driver (frame stays 666) and broke the link together with packet types
+_LIT8(KGnuBtComNoCredit, "8192 4096 32768 0 4\r\n");	// ... flag 4: 32 KB socket buffers (more RFCOMM credits?)
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 	{
@@ -564,8 +565,8 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("all radio packet types (3- and 5-slot). Test."));
 		break;
 	default:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, asks for"));
-		iView->Log(_L("990-byte Bluetooth frames (not 666). Test."));
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers and 32 KB"));
+		iView->Log(_L("Bluetooth socket buffers. Test."));
 		break;
 		}
 	iView->Log(_L("Takes effect at the next Connect."));
@@ -883,7 +884,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.8 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.9 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

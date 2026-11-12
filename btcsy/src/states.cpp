@@ -1007,6 +1007,17 @@ void TBTPortStateSDPAttributeListRetrieved::DoLockedAction(CBTPortProxy* aContex
 		LOG3(_L("frame size: max MTU was %d (get %d), set %d"), (TInt)cur(), e0, e1);
 		LOG2(_L("frame size: max MTU now %d (get %d)"), (TInt)now(), e2);
 		}
+	if (aContext->iFlags & KGnuBtFlagSocketBuffers)
+		{
+		// the RFCOMM receive credits the phone grants may depend on its socket receive buffer
+		TPckgBuf<TInt> rb0(0), sb0(0);
+		sock.GetOpt(KSORecvBuf, KSOLSocket, rb0);
+		sock.GetOpt(KSOSendBuf, KSOLSocket, sb0);
+		TInt e1=sock.SetOpt(KSORecvBuf, KSOLSocket, 32768);
+		TInt e2=sock.SetOpt(KSOSendBuf, KSOLSocket, 32768);
+		LOG2(_L("socket buffers were: receive %d, send %d"), rb0(), sb0());
+		LOG2(_L("socket buffers 32 KB: receive %d, send %d"), e1, e2);
+		}
 	if (aContext->iFlags & KGnuBtFlagNoCreditFlow)
 		{
 		TInt e=sock.SetOpt(KRFCOMMFlowTypeCBFC, KSolBtRFCOMM, 0);
@@ -1236,6 +1247,22 @@ void TBTPortStateOpen::DoReadCompleted(CBTPortProxy* aContext,TInt aError)
 		HandleIPCWriteToClient(aContext);
 		}
 
+#ifndef GNUBTCOM_NOLOG
+	// GnuBox: RFCOMM credits about once a second (log on only)
+	if (GNUBT_LOGGING)
+		{
+		TUint now=User::TickCount();
+		if (now-aContext->iCreditLogTick>=64)
+			{
+			aContext->iCreditLogTick=now;
+			TPckgBuf<TInt> rx(0), tx(0);
+			TInt e1=aContext->iSocket.GetOpt(KRFCOMMGetReceiveCredit, KSolBtRFCOMM, rx);
+			TInt e2=aContext->iSocket.GetOpt(KRFCOMMGetTransmitCredit, KSolBtRFCOMM, tx);
+			LOG3(_L("RFCOMM credits: receive %d, transmit %d (get %d)"), rx(), tx(), e1 ? e1 : e2);
+			LOG1(_L("waiting for PPP: %d B"), aContext->iCircularReadBuf->Count());
+			}
+		}
+#endif
 	// check to see if we've reached or surpased our watermark
 	if(aContext->ReadInBufferHighWatermarkReached())
 		{
