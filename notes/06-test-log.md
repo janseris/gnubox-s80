@@ -490,3 +490,15 @@ RFCOMM socket (KErrNotSupported), and the RFCOMM maximum MTU was refused with KE
 option was the wrong size (the get failed too). So nothing was asked for; that's why the frame stayed 666.
 Also: the connect retries ran in the same second and all failed with -34 (one Connect needed a manual
 second try). 2.9.7: the MTU as a TUint16 (logs the value before and after), retries 2 s apart.
+
+### #23, 2.9.7 *big frames* (990-byte frames + all packet types) with the log (2026-11-12 01:47) [device: user]
+Driver log: RFCOMM max MTU was 0 (= default), set to 990 OK, reads back 990; link manager packet-type
+ioctl (all DM/DH 1-5) OK. GnuBox Share 1.7 (accepts up to 1011): **frame size still 666** - so the
+size is capped below the driver's setting (most likely the phone's L2CAP MTU of 672 for the RFCOMM
+channel; the L2CAP option is not supported on an RFCOMM socket). And the link didn't work: the phone sent an
+LCP Configure-Request every second (GnuBox Share answered each, "the phone restarted the link") for 30+ s;
+the driver log shows reads completing and data handed to PPP, so what arrived was unusable or lost. Same at
+01:33 (first 2.9.7 connect) and with *no credit flow* (which also set both). The 2.9.5-driver connects at
+01:37/01:40 (neither setting effective) worked. GnuBox Share 1.7: ACCM 0 - escaping costs <1%, not a factor.
+No credit flow: the RFCOMM connection never reached the PC. 2.9.8 splits the two: *all packet types* alone,
+*big frames only* alone.

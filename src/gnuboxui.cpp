@@ -514,8 +514,9 @@ _LIT(KGnuBtComDir, "\\System\\Libs\\");
 _LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
 _LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
 _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
-_LIT8(KGnuBtComFrames, "8192 4096 32768 990 1\r\n");	// ... RFCOMM frame size, flag 1: all packet types
-_LIT8(KGnuBtComNoCredit, "8192 4096 32768 990 3\r\n");	// ... flag 2: no credit-based flow control
+// 2.9.7 with both of these: the phone's PPP got nothing usable (LCP restarted every second); one at a time:
+_LIT8(KGnuBtComFrames, "8192 4096 32768 0 1\r\n");	// ... flag 1: all ACL packet types
+_LIT8(KGnuBtComNoCredit, "8192 4096 32768 990 0\r\n");	// ... ask for 990-byte RFCOMM frames
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 	{
@@ -559,12 +560,12 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
 		break;
 	case EGnuboxBtOwnFrames:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, asks for"));
-		iView->Log(_L("990-byte frames (not 666) and all radio packet types. Test."));
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, allows"));
+		iView->Log(_L("all radio packet types (3- and 5-slot). Test."));
 		break;
 	default:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), as big frames, and"));
-		iView->Log(_L("Bluetooth serial without credit flow control. Test."));
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, asks for"));
+		iView->Log(_L("990-byte Bluetooth frames (not 666). Test."));
 		break;
 		}
 	iView->Log(_L("Takes effect at the next Connect."));
@@ -882,7 +883,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.7 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.8 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:
