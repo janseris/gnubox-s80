@@ -538,3 +538,33 @@ buffer is `KRfcommSAPBufferMultiple = 50` frames and flow stops by MSC/FCoff ins
 Connected (first time in this mode). NetTest Quick 29.5 / 27.5 / 28.7 / 28.2 / 28.4 / 29.8 / 27.4 / 27.7 kB/s,
 0 errors; GnuBox Share 34.3 kB/s in seconds with data. No gain, slightly lower. Not yet known whether the
 link really ran without credits (needs the driver log: the credit lines).
+
+### #23, 2.10 *no credit flow* with the log (2026-11-12 13:50-14:09) [device: user]
+Stuck at 3500 like the 2.9.7 failure: Bluetooth connected, GnuBox Share answered the phone's LCP
+Configure-Request every second for ~20 min, the phone never accepted the answers. The driver log (last 400 KB,
+14:08-14:09): reads complete, 29-81 B handed to PPP each time, writes complete - the bytes arrive and go to PPP,
+but PPP doesn't take them as valid frames. Intermittent: same setting without the log connected fine; 2.9.7
+(990 frames + packet types) failed twice, the two settings alone worked. Cause not found (would need the bytes:
+a hex dump of what goes to PPP).
+**`RFCOMM credits: receive 0, transmit 0`** throughout: credit-based flow control really was off. So the
+13:35 run (34.3 kB/s, NetTest 27-30) ran without the 7-credit window - and was no faster. **The credit window is
+not the limit either.**
+
+### #23 summary: what limits Bluetooth on the 9300 (all measured, same NetTest Quick, 755 KB x 8 runs)
+| Driver / setting | NetTest kB/s | GnuBox Share kB/s |
+|---|---|---|
+| Phone's BTCOMM (#19) | 28.5-31.1 | ~34 |
+| GNUBTCOM, Symbian's buffers | 26.9-31.1 | 35.2 |
+| GNUBTCOM, 8 KB reads / 32 KB buffer | 28.7-31.0 | 36.3 |
+| + all ACL packet types (3/5-slot allowed) | 22.9-30.2 | 33.5 |
+| + 990-byte frames asked (stays 666) | 28.6-31.2 | 35.8 |
+| + 32 KB socket buffers | 28.3-30.9 | 35.6 |
+| + no credit-based flow control (credits 0/0) | 27.4-29.8 | 34.3 |
+Ruled out: BTCOMM's buffers, the phone's RFCOMM credit window (7 frames), socket buffers, ACL packet types
+the phone allows, PPP escaping (ACCM 0), compression (#17), TCP window (#19), the phone's CPU/TCP (107 kB/s
+over USB, #9), the PC's send side (Bluetooth busy 1%). Not changeable: the RFCOMM frame size (666, set by
+L2CAP's MTU of 672 in the phone's stack). What is left is below RFCOMM: L2CAP/HCI/baseband on the phone or
+the PC's Bluetooth adapter/stack - the ~35 kB/s (~280 kbit/s) is where this pair of radios ends up. Only a
+different PC adapter or host would tell which side.
+GNUBTCOM stays an experiment: no faster, and an intermittent "PPP never comes up" (above). Everyday setting:
+*Bluetooth driver: the phone's*.
