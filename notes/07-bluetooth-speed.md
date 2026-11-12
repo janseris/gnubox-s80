@@ -25,6 +25,10 @@ Earlier, with the phone's BTCOMM:
   the same as Windows + GnuBox Share (34-37) (#16).
 - Over the USB cable the same phone does **220 kB/s HTTP** (#9 had 107 kB/s), so its CPU, TCP/IP and
   HTTP are not the limit.
+- The laptop's Bluetooth to the Android phone (file transfer, OBEX, Windows' own tool): 1318 kB in 30 s =
+  **~44 kB/s**, already faster than anything the 9300 got, through a protocol with its own overhead (OBEX
+  over RFCOMM). So the laptop's Bluetooth isn't capped at 35 kB/s; with the Android host also giving the
+  9300 ~35, the 9300 is the side that limits.
 
 ## Ruled out
 
@@ -35,7 +39,7 @@ Earlier, with the phone's BTCOMM:
 | PPP escaping | the phone asks for ACCM 0x00000000: only 0x7E/0x7D escaped, < 1 % (GnuBox Share 1.7) |
 | The phone's CPU / TCP stack | 220 kB/s over USB |
 | The PC sending | GnuBox Share's Bluetooth send is busy ~1 % of the time, nothing queued |
-| The host's radio / stack | Android + BlueDUN++ and Windows give the same ~35 kB/s |
+| The host's radio / stack | Android + BlueDUN++ and Windows give the same ~35 kB/s; the laptop sends ~44 kB/s to the Android phone (OBEX file transfer) |
 | BTCOMM's buffers (1 KB reads, 4 KB buffer) | our own copy with 8x the buffers: same |
 | RFCOMM credit window | the phone grants at most 7 credits (Symbian source: `KRfcommSAPCBFCBufferMultiple = 7`, buffer = 7 x MTU), measured 0-7 in the log; with credit-based flow control switched off (credits 0/0, buffer 50 frames): same speed |
 | Socket buffer sizes | 32 KB: same |

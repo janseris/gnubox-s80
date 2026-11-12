@@ -568,3 +568,8 @@ the PC's Bluetooth adapter/stack - the ~35 kB/s (~280 kbit/s) is where this pair
 different PC adapter or host would tell which side.
 GNUBTCOM stays an experiment: no faster, and an intermittent "PPP never comes up" (above). Everyday setting:
 *Bluetooth driver: the phone's*.
+
+### 2026-11-12 14:2x: laptop -> Android Bluetooth file transfer [device: user]
+A 1318 kB file from the laptop to the Android phone over Bluetooth (Windows file transfer, OBEX) took 30 s:
+~44 kB/s, more than the 9300 ever got (~35). The laptop's Bluetooth is not the 35 kB/s cap; see
+`07-bluetooth-speed.md`.
