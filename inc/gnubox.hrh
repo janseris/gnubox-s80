@@ -38,7 +38,8 @@ enum TGnuboxCommandIds
 	EGnuboxCmdBtSymbian,
 	EGnuboxCmdBtOwn,
 	EGnuboxCmdBtOwnBig,
-	EGnuboxCmdBtLog
+	EGnuboxCmdBtLog,
+	EGnuboxCmdBtOwnFrames
 	};
 
 // dynamic "Device" menu items: one per paired device

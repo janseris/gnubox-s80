@@ -114,16 +114,18 @@ void CBTPortProxy::ReadBufferSizes()
 			if (file.Read(text)==KErrNone)
 				{
 				TLex8 lex(text);
-				TInt v[3]={0,0,0};
+				TInt v[4]={0,0,0,0};
 				TInt n=0;
-				while (n<3)
+				while (n<4)
 					{
 					lex.SkipSpace();
 					if (lex.Val(v[n])!=KErrNone)
 						break;
 					n++;
 					}
-				if (n==3 && v[0]>=128 && v[1]>=128 && v[2]>=2*v[0] &&
+				if (n==4 && v[3]>=100 && v[3]<=32767)
+					iFrameSize=v[3];
+				if (n>=3 && v[0]>=128 && v[1]>=128 && v[2]>=2*v[0] &&
 					v[0]<=KGnuBtComMaxLen && v[1]<=KGnuBtComMaxLen && v[2]<=KGnuBtComMaxLen)
 					{
 					iRecvBufLen=v[0];
@@ -140,6 +142,7 @@ void CBTPortProxy::ReadBufferSizes()
 	if (iLowWatermark>iHighWatermark)
 		iLowWatermark=iHighWatermark;
 	LOG3(_L("buffers: read %d, write %d, receive %d"), iRecvBufLen, iSendBufLen, iCircBufLen)
+	LOG1(_L("RFCOMM frame size asked for: %d (0 = default)"), iFrameSize)
 	}
 
 CBTPortProxy::CBTPortProxy(TUint32 aPortNo) 

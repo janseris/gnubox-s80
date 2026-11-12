@@ -514,6 +514,7 @@ _LIT(KGnuBtComDir, "\\System\\Libs\\");
 _LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
 _LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
 _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
+_LIT8(KGnuBtComFrames, "8192 4096 32768 990\r\n");	// ... and the RFCOMM frame size to ask for
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 	{
@@ -528,13 +529,13 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 			return;
 			}
 		}
-	if (aDriver == EGnuboxBtOwnBig)
+	if (aDriver == EGnuboxBtOwnBig || aDriver == EGnuboxBtOwnFrames)
 		{
 		TParsePtrC parse(KGnuBtComIni);
 		fs.MkDirAll(parse.DriveAndPath());
 		RFile file;
 		User::LeaveIfError(file.Replace(fs, KGnuBtComIni, EFileWrite));
-		TInt err = file.Write(KGnuBtComBig);
+		TInt err = file.Write(aDriver == EGnuboxBtOwnFrames ? KGnuBtComFrames() : KGnuBtComBig());
 		file.Close();
 		User::LeaveIfError(err);
 		}
@@ -551,9 +552,13 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), Symbian's buffers"));
 		iView->Log(_L("(1 KB reads and writes, 4 KB receive buffer). Test."));
 		break;
-	default:
+	case EGnuboxBtOwnBig:
 		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers"));
 		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
+		break;
+	default:
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers and"));
+		iView->Log(_L("asks for 990-byte Bluetooth frames (instead of 666). Test."));
 		break;
 		}
 	iView->Log(_L("Takes effect at the next Connect."));
@@ -700,6 +705,8 @@ void CGnuboxAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane)
 			iSettings.iBtDriver == EGnuboxBtOwn ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnBig,
 			iSettings.iBtDriver == EGnuboxBtOwnBig ? EEikMenuItemSymbolOn : 0);
+		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnFrames,
+			iSettings.iBtDriver == EGnuboxBtOwnFrames ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdBtLog, BtLogOn() ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecNone,
 			iSettings.iSecurity == KBTDefaultServiceSecurityNone ? EEikMenuItemSymbolOn : 0);
@@ -825,6 +832,9 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 	case EGnuboxCmdBtOwnBig:
 		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnBig));
 		break;
+	case EGnuboxCmdBtOwnFrames:
+		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnFrames));
+		break;
 	case EGnuboxCmdBtLog:
 		TRAP(err, CmdToggleBtLogL());
 		break;
@@ -861,7 +871,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.4 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.5 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

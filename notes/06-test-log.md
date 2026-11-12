@@ -450,3 +450,25 @@ fits ESOCK left in *exclusive mode* for the driver's session (BTCOMM's "locker",
 `RSocketServ::SetExclusiveMode`): then no other ESOCK client gets served. BTCOMM leaves the lock on when
 a locked action fails (e.g. opening the RFCOMM socket -> Error() without StopLocker). 2.9.4: unlock on
 every move to the error state. The actual cause of the stall still needs the log.
+
+### #23, sixth run: 2.9.3, GNUBTCOM **big buffers** (8192 / 4096 / 32768), log off (2026-11-12 01:05-01:09) [device: user]
+Connected at the first try after a phone restart (the earlier stall was probably a Connect within the
+driver's 6-second close delay after a Disconnect, which reuses the old port). NetTest 1.4 Quick:
+
+| Run | Conn. | Window | big buffers | Symbian's buffers (5th run) | BTCOMM (#19) |
+|---|---|---|---|---|---|
+| 1 | 2 | 8 KB | 29.5 | 28.5 | 29.3 |
+| 2 | 2 | 16 KB | 30.4 | 26.9 | 30.9 |
+| 3 | 2 | 32 KB | 30.8 | 30.1 | 31.1 |
+| 4 | 2 | 64 KB | 31.0 | 31.1 | 31.1 |
+| 5 | 3 | 16 KB | 30.4 | 30.0 | 30.7 |
+| 6 | 3 | 32 KB | 30.8 | 30.9 | 30.7 |
+| 7 | 1 | 16 KB | 28.7 | 26.9 | 28.5 |
+| 8 | 1 | 64 KB | 28.7 | 28.1 | 28.6 |
+
+GnuBox Share, seconds with data: 36.3 kB/s average (big) vs 35.2 (Symbian's buffers); Bluetooth busy 1%.
+**BTCOMM's buffer sizes are not the limit** (1 KB reads / 4 KB buffer vs 8 KB / 32 KB: the same). The
+suspect from #16 is ruled out. What's left below TCP: RFCOMM frames of 666 B (~53 frames/s at 35 kB/s,
+each needing credit), PPP/HDLC on the phone's CPU, the radio link. GnuBox 2.9.5 adds *big frames*: the
+driver asks for 990-byte RFCOMM frames (L2CAP inbound MTU and RFCOMM max MTU set before connecting);
+GnuBox Share's "frame size" line shows what was agreed.

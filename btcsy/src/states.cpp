@@ -991,6 +991,18 @@ void TBTPortStateSDPAttributeListRetrieved::DoLockedAction(CBTPortProxy* aContex
 		LOG(_L("**TBTPortStateSDPAttributeListRetrieved could NOT open RFComm socket connection **"));
 		return;
 		}
+	// GnuBox: bigger RFCOMM frames (fewer frames and credits per KB); the RFCOMM negotiation
+	// with the PC settles the final size (GnuBox Share logs it as "frame size")
+	if (aContext->iFrameSize>0)
+		{
+		TInt cur=0;
+		TPckgBuf<TInt> curBuf;
+		if (sock.GetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, curBuf)==KErrNone)
+			cur=curBuf();
+		TInt e1=sock.SetOpt(KL2CAPInboundMTU, KSolBtL2CAP, aContext->iFrameSize+5);
+		TInt e2=sock.SetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, aContext->iFrameSize);
+		LOG3(_L("frame size: default max %d, set L2CAP inbound MTU %d, RFCOMM max MTU %d"), cur, e1, e2);
+		}
 	aSig = KModemSignalDV; // KModemSignalRTC and KModemSignalRTR have been turned off
 	sock.SetOpt(KRFCOMMErrOnMSC, KSolBtRFCOMM, aSig);
 	// sync action completed ok - now stop locker.
