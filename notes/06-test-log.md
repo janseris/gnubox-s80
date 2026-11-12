@@ -515,3 +515,7 @@ more RFCOMM credits?), and with the log on, the RFCOMM receive/transmit credits 
 Connected and worked this time (so frames alone don't break the link; only the 2.9.7 combination with
 packet types did). Frame size still 666. NetTest Quick 30.1 / 30.9 / 30.9 / 31.1 / 31.2 / 31.2 / 29.5 /
 28.6 kB/s, 0 errors; GnuBox Share 35.8 kB/s in seconds with data. No gain (the frame size never changed).
+
+### #23, 2.9.9 *big socket buffers* (32 KB KSORecvBuf/KSOSendBuf), log off (2026-11-12 02:14-02:18) [device: user]
+NetTest Quick 29.0 / 30.8 / 30.9 / 30.4 / 30.3 / 30.0 / 28.3 / 29.3 kB/s, 0 errors; GnuBox Share 35.6 kB/s.
+No gain (whether the buffers took effect / changed the credits: the log run shows).
