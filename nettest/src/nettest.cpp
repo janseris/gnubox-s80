@@ -320,25 +320,16 @@ CNtPoster::~CNtPoster()
 	delete iData;
 	}
 
-_LIT8(KNtResultsName, "nettest");
-
 void CNtPoster::PostL(const TDesC8& aBody)
-	{
-	PostL(aBody, KNtResultsName, KNullDesC);
-	}
-
-void CNtPoster::PostL(const TDesC8& aBody, const TDesC8& aName, const TDesC& aDeleteAfter)
 	{
 	if (IsActive())
 		return;
-	iName.Copy(aName.Left(iName.MaxLength()));
-	iDeleteAfter.Copy(aDeleteAfter);
 	delete iData;
 	iData = NULL;
 	iData = HBufC8::NewL(aBody.Length() + 300);
 	TPtr8 p = iData->Des();
-	p.Format(_L8("POST /results?name=%S HTTP/1.1\r\nHost: 192.168.137.1:8000\r\n"
-		"Content-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n"), &iName, aBody.Length());
+	p.Format(_L8("POST /results?name=nettest HTTP/1.1\r\nHost: 192.168.137.1:8000\r\n"
+		"Content-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n"), aBody.Length());
 	p.Append(aBody);
 	User::LeaveIfError(iSock.Open(iSs, KAfInet, KSockStream, KProtocolInetTcp));
 	iOpen = ETrue;
@@ -374,24 +365,11 @@ void CNtPoster::Done(TInt aError)
 		iOpen = EFalse;
 		}
 	iState = EIdle;
-	TBuf<100> t;
-	TBuf<32> name;
-	name.Copy(iName);
+	TBuf<80> t;
 	if (aError == KErrNone && iAnswer.Find(_L8(" 200 ")) >= 0)
-		{
-		t.Format(_L("Sent to the PC (localserver\\uploads\\..._%S.txt)."), &name);
-		if (iDeleteAfter.Length() > 0)
-			{
-			RFs fs;
-			if (fs.Connect() == KErrNone)
-				{
-				fs.Delete(iDeleteAfter);
-				fs.Close();
-				}
-			}
-		}
+		t.Copy(_L("Results sent to the PC (localserver\\uploads\\..._nettest.txt)."));
 	else
-		t.Format(_L("Sending %S to the PC failed (%d)."), &name, aError);
+		t.Format(_L("Sending the results to the PC failed (%d)."), aError);
 	iObs.NtLog(t);
 	}
 
@@ -482,7 +460,7 @@ void CNtUpload::StartL()
 		return;
 	if (!iPost)
 		iPost = HBufC8::NewL(KNtUpSize + 400);
-	iResults.Copy(_L8("NetTest 1.4 upload test: POSTs of 40 KB, 4 on one kept-open connection, then 4 each on a fresh connection\r\n"
+	iResults.Copy(_L8("NetTest 1.5 upload test: POSTs of 40 KB, 4 on one kept-open connection, then 4 each on a fresh connection\r\n"
 		"connection; POST; result; ms; kB/s; connect ms\r\n"));
 	iRunning = ETrue;
 	iMode = 0;
@@ -995,7 +973,7 @@ void CNtEngine::BuildResults(TDes8& aText, TBool /*aForPc*/)
 	TBuf<40> stamp;
 	TRAPD(ignore, iTestStart.FormatL(stamp, _L("%F%Y-%M-%D %H:%T:%S")));
 	TBuf8<200> line;
-	line.Copy(iSmall ? _L8("NetTest 1.4 small-file results, test started ") : _L8("NetTest 1.4 results, test started "));
+	line.Copy(iSmall ? _L8("NetTest 1.5 small-file results, test started ") : _L8("NetTest 1.5 results, test started "));
 	TBuf8<40> stamp8;
 	stamp8.Copy(stamp);
 	line.Append(stamp8);
@@ -1046,40 +1024,6 @@ void CNtEngine::PostTextL(const TDesC8& aText)
 	iPoster->PostL(aText);
 	}
 
-// GnuBox's Bluetooth driver (GNUBTCOM.CSY) logs to this file while C:\Logs\GnuBtCom exists
-_LIT(KNtDriverLog, "C:\\Logs\\GnuBtCom\\gnubtcom.txt");
-_LIT8(KNtDriverLogName, "gnubtcom");
-const TInt KNtDriverLogMax = 400 * 1024;
-
-void CNtEngine::SendDriverLogL()
-	{
-	RFs fs;
-	User::LeaveIfError(fs.Connect());
-	CleanupClosePushL(fs);
-	RFile file;
-	TInt err = file.Open(fs, KNtDriverLog, EFileRead | EFileShareAny);
-	if (err != KErrNone)
-		{
-		TBuf<80> t;
-		t.Format(_L("No Bluetooth driver log (C:\\Logs\\GnuBtCom\\gnubtcom.txt: %d)."), err);
-		iObs.NtLog(t);
-		CleanupStack::PopAndDestroy(&fs);
-		return;
-		}
-	CleanupClosePushL(file);
-	TInt size = 0;
-	User::LeaveIfError(file.Size(size));
-	TInt pos = size > KNtDriverLogMax ? size - KNtDriverLogMax : 0;	// the end matters most
-	HBufC8* data = HBufC8::NewLC(size - pos);
-	TPtr8 p = data->Des();
-	User::LeaveIfError(file.Read(pos, p));
-	iPoster->PostL(p, KNtDriverLogName, KNtDriverLog);
-	TBuf<80> t;
-	t.Format(_L("Sending the Bluetooth driver log (%d KB)..."), p.Length() / 1024);
-	iObs.NtLog(t);
-	CleanupStack::PopAndDestroy(3);	// data, file, fs
-	}
-
 void CNtEngine::SendResultsL()
 	{
 	HBufC8* text = HBufC8::NewLC(4096);
@@ -1108,7 +1052,7 @@ void CNtView::ConstructL(const TRect& aRect)
 	CreateWindowL();
 	iStatus1 = new (ELeave) CEikLabel;
 	iStatus1->SetContainerWindowL(*this);
-	iStatus1->SetTextL(_L("NetTest 1.4"));
+	iStatus1->SetTextL(_L("NetTest 1.5"));
 	iStatus2 = new (ELeave) CEikLabel;
 	iStatus2->SetContainerWindowL(*this);
 	iStatus2->SetTextL(KNullDesC);
@@ -1252,7 +1196,7 @@ void CNtAppUi::ConstructL()
 	iEngine = CNtEngine::NewL(*this);
 	iUpload = CNtUpload::NewL(iEngine->SocketServ(), *this);
 	iUpload->SetEngine(iEngine);
-	iView->Log(_L("NetTest 1.4: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
+	iView->Log(_L("NetTest 1.5: downloads the PC's test files (the sizes of a Maps 3D download, 118 files, 2.5 MB) "
 		"once for each of 8 settings: 2 connections with a 8 / 16 / 32 / 64 KB TCP window, 3 connections with "
 		"16 / 32 KB, 1 connection with 16 / 64 KB."));
 	iView->Log(_L("Before: connect GnuBox (or the USB cable), and run the PC's localserver (ota_server.js) "
@@ -1312,9 +1256,6 @@ void CNtAppUi::HandleCommandL(TInt aCommand)
 		break;
 	case ENtCmdSend:
 		iEngine->SendResultsL();
-		break;
-	case ENtCmdDriverLog:
-		iEngine->SendDriverLogL();
 		break;
 	case ENtCmdClear:
 		iView->ClearL();
