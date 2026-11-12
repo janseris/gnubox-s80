@@ -19,35 +19,36 @@ The port is `GNUBTCOM::0`. It finds its PC exactly like `BTCOMM::0`: the Bluetoo
 default device for port 0 (what GnuBox writes when you choose the device), then an SDP query for
 the service, then an RFCOMM connection.
 
-## Using it
+## Using it (test builds only)
 
-GnuBox 2.9 installs `gnubtcom.csy` to `\System\Libs\`. In GnuBox *Settings*:
+GnuBox 2.9-2.10 had *Settings > Bluetooth driver: ...* options for this driver; **2.11 removed them**
+again, since none was faster. To repeat the tests, install [`release/gnubox-2.10-driver-tests.sis`](release/gnubox-2.10-driver-tests.sis)
+(GnuBox 2.10 with `gnubtcom.csy`; the driver alone: `release/gnubtcom.csy`). Its settings:
 
-- *Bluetooth driver: the phone's* - BTCOMM, as before (default).
-- *Bluetooth driver: GnuBox's (test)* - GNUBTCOM with Symbian's buffer sizes. Should behave
-  exactly like BTCOMM; this checks the port itself.
-- *Bluetooth driver: GnuBox's, big buffers (test)* - GNUBTCOM with 8 KB socket reads, 4 KB
-  writes, a 32 KB receive buffer.
+- *Bluetooth driver: the phone's* - BTCOMM (default).
+- *GnuBox's (test)* - GNUBTCOM with Symbian's buffer sizes.
+- *GnuBox's, big buffers (test)* - 8 KB socket reads, 4 KB writes, a 32 KB receive buffer.
+- *GnuBox's, all packet types (test)* - big buffers + every ACL packet type allowed (flag 1).
+- *GnuBox's, no credit flow (test)* - big buffers + RFCOMM without credit-based flow control (flag 2).
+- *GnuBox driver log (slow, for faults)* - creates/deletes `C:\Logs\GnuBtCom\`; restart the phone after.
 
 The choice is written into the *GnuBox BT* access point (ModemBearer CSYName/PortName) at the
-next Connect.
+next Connect. After going back to 2.11, the next Connect writes `BTCOMM::0` again.
 
-The buffer sizes come from the optional text file `C:\System\Data\gnubtcom.ini`:
-`<read> <write> <buffer>` in bytes, e.g. `8192 4096 32768` (GnuBox writes or deletes it). Read
-when the port opens. Limits: each at least 128, at most 256 KB, buffer at least twice the read.
-The socket is read again until `buffer - read` bytes wait for PPP, and restarts at half the buffer.
-
-## Link tweaks (GnuBox 2.9.5-2.9.6, for testing)
+## Link tweaks (GnuBox 2.9.5-2.10, for testing)
 
 The ini file can have two more numbers: `<read> <write> <buffer> <frame> <flags>`.
-- `<frame>`: the RFCOMM frame size to ask for (L2CAP inbound MTU and RFCOMM maximum MTU set on
-  the socket before connecting; the negotiation with the PC decides; Windows takes up to 1011
-  if GnuBox Share 1.7 asks for it). 666 is what the 9300 normally gets.
+- `<frame>`: the RFCOMM frame size to ask for (`KRFCOMMMaximumSupportedMTU` as a TUint16 before
+  connecting; the L2CAP inbound MTU option is not supported on an RFCOMM socket). Accepted, but 666 is
+  still negotiated (Windows would take up to 1011 with GnuBox Share 1.7).
 - `<flags>` 1: once connected, allow every ACL packet type (DM1/DH1/DM3/DH3/DM5/DH5) through the
   link manager ioctl (HCI ioctl if that fails), so the radio may use 3- and 5-slot packets.
-- `<flags>` 2: RFCOMM without credit-based flow control.
+- `<flags>` 2: RFCOMM without credit-based flow control (works: the credits then read 0/0).
+- `<flags>` 4: 32 KB socket receive/send buffers.
 
-GnuBox: *big frames* = `8192 4096 32768 990 1`, *no credit flow* = `8192 4096 32768 990 3`.
+In 2.10: *all packet types* = `8192 4096 32768 0 1`, *no credit flow* = `8192 4096 32768 0 2`. Earlier
+builds tried `990 1` (frames + packet types together: the phone's PPP never came up), `990 0` and `0 4`.
+None was faster; the numbers are in `notes/07-bluetooth-speed.md`.
 
 ## Diagnostic log
 

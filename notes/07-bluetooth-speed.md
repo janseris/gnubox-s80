@@ -62,7 +62,7 @@ the Bluetooth chip). Nothing that runs as an app or a CSY can change it.
 
 ## Practical consequences
 
-- Use the phone's own driver (*Bluetooth driver: the phone's*, the default). GNUBTCOM is no faster and
+- GnuBox 2.11 uses the phone's own driver again (the test settings are gone). GNUBTCOM is no faster and
   has an intermittent fault (sometimes the phone's PPP never accepts what arrives, stuck at stage 3500,
   #23).
 - For apps: 2 connections, 8-16 KB TCP window, keep connections open (each new one costs ~0.6 s), reuse

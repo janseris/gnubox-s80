@@ -34,13 +34,7 @@ enum TGnuboxCommandIds
 	EGnuboxCmdCompression,
 	EGnuboxCmdTcpWindow,
 	EGnuboxCmdDefaultAsk,
-	EGnuboxCmdDefaultMenu,
-	EGnuboxCmdBtSymbian,
-	EGnuboxCmdBtOwn,
-	EGnuboxCmdBtOwnBig,
-	EGnuboxCmdBtLog,
-	EGnuboxCmdBtOwnFrames,
-	EGnuboxCmdBtOwnNoCredit
+	EGnuboxCmdDefaultMenu
 	};
 
 // dynamic "Device" menu items: one per paired device

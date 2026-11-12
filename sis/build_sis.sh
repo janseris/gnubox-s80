@@ -4,8 +4,8 @@ set -e
 E=${EPOCROOT:-$HOME/sym/s80_20/}epoc32
 D=$(mktemp -d)
 cp "$E/release/armi/urel/gnubox.app" "$E/data/z/system/apps/gnubox/gnubox.rsc" \
-   "$E/data/z/system/apps/gnubox/gnubox.aif" "$E/release/armi/urel/gnubtcom.csy" "$D/"
-sed -e 's|"[^"]*\\\(gnub[a-z]*\.[a-z]*\)"-|"\1"-|' "$(dirname "$0")/gnubox.pkg" > "$D/gnubox.pkg"
+   "$E/data/z/system/apps/gnubox/gnubox.aif" "$D/"
+sed -e 's|"[^"]*\\\(gnubox\.[a-z]*\)"-|"\1"-|' "$(dirname "$0")/gnubox.pkg" > "$D/gnubox.pkg"
 (cd "$D" && makesis gnubox.pkg gnubox.sis)
 cp "$D/gnubox.sis" "$(dirname "$0")/gnubox.sis"
 rm -rf "$D"

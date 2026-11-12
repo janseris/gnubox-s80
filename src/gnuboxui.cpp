@@ -375,7 +375,7 @@ void CGnuboxAppUi::EnsureRecordsL()
 	{
 	// always (re)write: repairs the access point if it was edited in Control
 	// panel (which insists on a phone number) and applies the current mode
-	GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress, iSettings.iBtDriver);
+	GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress);
 	if (iSettings.iUseForAll)
 		{
 		TUint32 oldIap;
@@ -467,7 +467,7 @@ void CGnuboxAppUi::CmdToggleUseForAllL()
 	{
 	if (!iSettings.iUseForAll)
 		{
-		GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress, iSettings.iBtDriver);	// make sure it exists
+		GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress);	// make sure it exists
 		TUint32 oldIap;
 		TInt oldDialog;
 		TRAPD(err, GnuboxCommDb::MakePreferredL(*iView, oldIap, oldDialog));
@@ -507,103 +507,6 @@ void CGnuboxAppUi::CmdToggleCompression()
 		iView->Log(_L("Disconnect and Connect again to apply it."));
 	}
 
-// GnuBox's own Bluetooth serial driver (btcsy/, GNUBTCOM.CSY): a port of Symbian's BTCOMM
-// whose buffer sizes can be changed; it reads them from KGnuBtComIni when the port opens
-_LIT(KGnuBtComCsy, "gnubtcom.csy");
-_LIT(KGnuBtComDir, "\\System\\Libs\\");
-_LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
-_LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
-_LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
-// 2.9.7 with both of these: the phone's PPP got nothing usable (LCP restarted every second); one at a time:
-_LIT8(KGnuBtComFrames, "8192 4096 32768 0 1\r\n");	// ... flag 1: all ACL packet types
-// 990-byte frames: refused below the driver (frame stays 666) and broke the link together with packet types
-// 32 KB socket buffers (flag 4): no gain, the phone still grants at most 7 RFCOMM credits
-// the phone's RFCOMM gives at most 7 credits (7 x 666 B in flight) with credit-based flow control;
-// without it (RFCOMM 1.0 flow control) its buffer is 50 frames
-_LIT8(KGnuBtComNoCredit, "8192 4096 32768 0 2\r\n");	// ... flag 2: no credit-based flow control
-
-void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
-	{
-	RFs& fs = iEikonEnv->FsSession();
-	if (aDriver != EGnuboxBtSymbian)
-		{
-		TFindFile find(fs);
-		if (find.FindByDir(KGnuBtComCsy, KGnuBtComDir) != KErrNone)
-			{
-			iView->Log(_L("gnubtcom.csy is not installed (install the GnuBox .sis"));
-			iView->Log(_L("that contains it). Bluetooth driver not changed."));
-			return;
-			}
-		}
-	if (aDriver >= EGnuboxBtOwnBig)
-		{
-		TParsePtrC parse(KGnuBtComIni);
-		fs.MkDirAll(parse.DriveAndPath());
-		RFile file;
-		User::LeaveIfError(file.Replace(fs, KGnuBtComIni, EFileWrite));
-		TInt err = file.Write(aDriver == EGnuboxBtOwnNoCredit ? KGnuBtComNoCredit() :
-			aDriver == EGnuboxBtOwnFrames ? KGnuBtComFrames() : KGnuBtComBig());
-		file.Close();
-		User::LeaveIfError(err);
-		}
-	else
-		fs.Delete(KGnuBtComIni);
-	iSettings.iBtDriver = aDriver;
-	iSettings.Save(fs);
-	switch (aDriver)
-		{
-	case EGnuboxBtSymbian:
-		iView->Log(_L("Bluetooth driver: the phone's (BTCOMM)."));
-		break;
-	case EGnuboxBtOwn:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), Symbian's buffers"));
-		iView->Log(_L("(1 KB reads and writes, 4 KB receive buffer). Test."));
-		break;
-	case EGnuboxBtOwnBig:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers"));
-		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
-		break;
-	case EGnuboxBtOwnFrames:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, allows"));
-		iView->Log(_L("all radio packet types (3- and 5-slot). Test."));
-		break;
-	default:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, Bluetooth"));
-		iView->Log(_L("serial without credit flow control (no 7-frame limit). Test."));
-		break;
-		}
-	iView->Log(_L("Takes effect at the next Connect."));
-	if (iConnection->State() != EConnIdle)
-		iView->Log(_L("Disconnect and Connect again to apply it."));
-	}
-
-// the driver's diagnostic log (C:\Logs\GnuBtCom\gnubtcom.txt): on while its folder exists
-// when the driver loads; NetTest sends it to the PC. Slows the driver to a few kB/s.
-TBool CGnuboxAppUi::BtLogOn()
-	{
-	TEntry entry;
-	return iEikonEnv->FsSession().Entry(KGnuBtComLogDir, entry) == KErrNone;
-	}
-
-void CGnuboxAppUi::CmdToggleBtLogL()
-	{
-	RFs& fs = iEikonEnv->FsSession();
-	if (BtLogOn())
-		{
-		CFileMan* fm = CFileMan::NewL(fs);
-		fm->RmDir(KGnuBtComLogDir);
-		delete fm;
-		iView->Log(_L("GnuBox driver log off."));
-		}
-	else
-		{
-		User::LeaveIfError(fs.MkDirAll(KGnuBtComLogDir));
-		iView->Log(_L("GnuBox driver log on: C:\\Logs\\GnuBtCom (NetTest sends it to the"));
-		iView->Log(_L("PC). It makes the driver very slow: for finding faults only."));
-		}
-	iView->Log(_L("Applies when the driver is next loaded (restart the phone to be sure)."));
-	}
-
 void CGnuboxAppUi::CmdToggleTcpWindowL()
 	{
 	RFs& fs = iEikonEnv->FsSession();
@@ -633,7 +536,7 @@ void CGnuboxAppUi::CmdSetDefaultL(TInt aIndex)
 		TGnuboxIap iap = (*iIaps)[aIndex];
 		TBool gnubox = iap.iName.CompareF(KGnuboxIapName) == 0;
 		if (gnubox)
-			GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress, iSettings.iBtDriver);
+			GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress);
 		TUint32 oldIap = 0;
 		TInt oldDialog = -1;
 		GnuboxCommDb::SetDefaultL(iap.iId, EFalse, *iView, &oldIap, &oldDialog);
@@ -654,7 +557,7 @@ void CGnuboxAppUi::CmdSetDefaultL(TInt aIndex)
 
 void CGnuboxAppUi::CmdRepairL()
 	{
-	GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress, iSettings.iBtDriver);
+	GnuboxCommDb::CreateRecordsL(*iView, iSettings.iMode, iSettings.iCompress);
 	iView->Log(_L("Access point \"GnuBox BT\" written."));
 	iView->Log(_L("Note: don't save it in Control panel - it asks for a phone number,"));
 	iView->Log(_L("which would turn it into a real phone call. Connect repairs it."));
@@ -710,17 +613,6 @@ void CGnuboxAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane)
 		TBool tcp = EFalse;
 		TRAPD(e, tcp = GnuboxTcp::IsEnabledL(iEikonEnv->FsSession()));
 		aMenuPane->SetItemButtonState(EGnuboxCmdTcpWindow, tcp ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtSymbian,
-			iSettings.iBtDriver == EGnuboxBtSymbian ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwn,
-			iSettings.iBtDriver == EGnuboxBtOwn ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnBig,
-			iSettings.iBtDriver == EGnuboxBtOwnBig ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnFrames,
-			iSettings.iBtDriver == EGnuboxBtOwnFrames ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnNoCredit,
-			iSettings.iBtDriver == EGnuboxBtOwnNoCredit ? EEikMenuItemSymbolOn : 0);
-		aMenuPane->SetItemButtonState(EGnuboxCmdBtLog, BtLogOn() ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecNone,
 			iSettings.iSecurity == KBTDefaultServiceSecurityNone ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecAuth,
@@ -836,24 +728,6 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 	case EGnuboxCmdCompression:
 		CmdToggleCompression();
 		break;
-	case EGnuboxCmdBtSymbian:
-		TRAP(err, CmdSetBtDriverL(EGnuboxBtSymbian));
-		break;
-	case EGnuboxCmdBtOwn:
-		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwn));
-		break;
-	case EGnuboxCmdBtOwnBig:
-		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnBig));
-		break;
-	case EGnuboxCmdBtOwnFrames:
-		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnFrames));
-		break;
-	case EGnuboxCmdBtOwnNoCredit:
-		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnNoCredit));
-		break;
-	case EGnuboxCmdBtLog:
-		TRAP(err, CmdToggleBtLogL());
-		break;
 	case EGnuboxCmdUseForAll:
 		TRAP(err, CmdToggleUseForAllL());
 		break;
@@ -887,7 +761,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.10 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.11 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

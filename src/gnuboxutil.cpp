@@ -127,7 +127,7 @@ const TDesC& ErrText(TInt aErr)
 
 TGnuboxSettings::TGnuboxSettings()
 	: iHaveAddr(EFalse), iSecurity(KBTDefaultServiceSecurityNone), iMode(EGnuboxModePc), iPrevPrefIap(0),
-	  iAutoReconnect(ETrue), iUseForAll(EFalse), iPrevPrefDialog(-1), iCompress(EFalse), iBtDriver(EGnuboxBtSymbian)
+	  iAutoReconnect(ETrue), iUseForAll(EFalse), iPrevPrefDialog(-1), iCompress(EFalse)
 	{
 	}
 
@@ -159,7 +159,7 @@ void TGnuboxSettings::Load(RFs& aFs)
 			if (version >= 5)
 				iCompress = in.ReadInt8L();
 			if (version >= 6)
-				iBtDriver = in.ReadInt8L();
+				in.ReadInt8L();	// 2.9-2.10: the Bluetooth driver test setting (removed in 2.11)
 			}
 		});
 	in.Close();
@@ -177,7 +177,7 @@ TInt TGnuboxSettings::Save(RFs& aFs) const
 		return err;
 	TRAP(err,
 		{
-		out.WriteInt32L(6);
+		out.WriteInt32L(5);
 		for (TInt i = 0; i < 6; i++)
 			out.WriteUint8L(iAddr[i]);
 		out.WriteInt8L(iHaveAddr);
@@ -189,7 +189,6 @@ TInt TGnuboxSettings::Save(RFs& aFs) const
 		out.WriteInt8L(iUseForAll);
 		out.WriteInt8L(iPrevPrefDialog);
 		out.WriteInt8L(iCompress);
-		out.WriteInt8L(iBtDriver);
 		out.CommitL();
 		});
 	out.Close();
