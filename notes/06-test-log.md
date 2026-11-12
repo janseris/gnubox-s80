@@ -561,8 +561,8 @@ not the limit either.**
 | + 32 KB socket buffers | 28.3-30.9 | 35.6 |
 | + no credit-based flow control (credits 0/0) | 27.4-29.8 | 34.3 |
 Ruled out: BTCOMM's buffers, the phone's RFCOMM credit window (7 frames), socket buffers, ACL packet types
-the phone allows, PPP escaping (ACCM 0), compression (#17), TCP window (#19), the phone's CPU/TCP (107 kB/s
-over USB, #9), the PC's send side (Bluetooth busy 1%). Not changeable: the RFCOMM frame size (666, set by
+the phone allows, PPP escaping (ACCM 0), compression (#17), TCP window (#19), the phone's CPU/TCP (HTTP over
+the USB cable: 220 kB/s, the user's measurement; #9 had 107 kB/s), the PC's send side (Bluetooth busy 1%). Not changeable: the RFCOMM frame size (666, set by
 L2CAP's MTU of 672 in the phone's stack). What is left is below RFCOMM: L2CAP/HCI/baseband on the phone or
 the PC's Bluetooth adapter/stack - the ~35 kB/s (~280 kbit/s) is where this pair of radios ends up. Only a
 different PC adapter or host would tell which side.
