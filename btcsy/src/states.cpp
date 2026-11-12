@@ -26,6 +26,7 @@
 #include <e32test.h>
 #include <btmanclient.h>
 #include "btcommutil.h"
+#include "gnubtlink.h"
 
 #ifdef __FLOG_ACTIVE
 _LIT8(KLogComponent, LOG_COMPONENT_BT_COMM);
@@ -1003,6 +1004,11 @@ void TBTPortStateSDPAttributeListRetrieved::DoLockedAction(CBTPortProxy* aContex
 		TInt e2=sock.SetOpt(KRFCOMMMaximumSupportedMTU, KSolBtRFCOMM, aContext->iFrameSize);
 		LOG3(_L("frame size: default max %d, set L2CAP inbound MTU %d, RFCOMM max MTU %d"), cur, e1, e2);
 		}
+	if (aContext->iFlags & KGnuBtFlagNoCreditFlow)
+		{
+		TInt e=sock.SetOpt(KRFCOMMFlowTypeCBFC, KSolBtRFCOMM, 0);
+		LOG1(_L("credit-based flow control off: %d"), e);
+		}
 	aSig = KModemSignalDV; // KModemSignalRTC and KModemSignalRTR have been turned off
 	sock.SetOpt(KRFCOMMErrOnMSC, KSolBtRFCOMM, aSig);
 	// sync action completed ok - now stop locker.
@@ -1100,6 +1106,8 @@ void TBTPortStateConnecting::DoRunL(CBTPortProxy* aContext)
 			aContext->iPort->ReadCompleted(KErrNone);
 			}
 		aContext->StartReader();
+		if (aContext->iFlags & KGnuBtFlagPacketTypes)
+			aContext->iLinkTuner->Start();
 		aContext->SetState(iFactory->GetState(CBTPortStateFactory::EOpen));
 		}
 	}
@@ -1662,6 +1670,7 @@ void TBTPortStateClosing::DoLockedAction(CBTPortProxy* aContext)
 	//
 	// This shutdown will cause any outstanding socket ops to be cancelled so
 	// we can safely call aContext->Cancel() afterwards.
+	aContext->iLinkTuner->Cancel();	// GnuBox: its ioctl uses the socket
 	if(aContext->iSocket.SubSessionHandle())
 		{// Make sure we had managed to open the socket connection before we arriveed here		
 		aContext->iSocket.Shutdown(RSocket::EImmediate,aContext->iStatus);

@@ -17,6 +17,7 @@ SOURCE          btcommutil.cpp
 SOURCE          sdpclientcsy.cpp
 SOURCE          BTSimTimer.cpp
 SOURCE          sockservconnector.cpp
+SOURCE          gnubtlink.cpp
 
 USERINCLUDE     ..\src
 SYSTEMINCLUDE   \epoc32\include

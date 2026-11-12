@@ -243,9 +243,18 @@ public sealed class Ppp
                 if (rej.Count > 0) { SendCp(Lcp, 4, ident, Opts(rej.ToArray())); return; }
                 SendCp(Lcp, 2, ident, body);                                // Configure-Ack
                 uint accm = 0xFFFFFFFF;
+                int mru = 1500;
+                bool pfc = false, acfc = false;
                 foreach (var (t, v) in ParseOpts(body))
+                {
                     if (t == 2 && v.Length == 4) accm = BinaryPrimitives.ReadUInt32BigEndian(v);
+                    if (t == 1 && v.Length == 2) mru = BinaryPrimitives.ReadUInt16BigEndian(v);
+                    if (t == 7) pfc = true;
+                    if (t == 8) acfc = true;
+                }
                 _esc = Hdlc.EscapeTable(accm);
+                // ACCM 0xFFFFFFFF = escape all 32 control bytes: ~12.5% more bytes on the link for binary data
+                Log.Info($"PPP: the phone's LCP options: ACCM 0x{accm:X8}, MRU {mru}, protocol field compression {(pfc ? "yes" : "no")}, address/control compression {(acfc ? "yes" : "no")}");
                 if (_lcpOpen && _lcpAckedPeer)
                 {
                     Log.Info("PPP: the phone restarted the link");

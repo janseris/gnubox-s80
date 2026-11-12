@@ -31,6 +31,18 @@ The buffer sizes come from the optional text file `C:\System\Data\gnubtcom.ini`:
 when the port opens. Limits: each at least 128, at most 256 KB, buffer at least twice the read.
 The socket is read again until `buffer - read` bytes wait for PPP, and restarts at half the buffer.
 
+## Link tweaks (GnuBox 2.9.5-2.9.6, for testing)
+
+The ini file can have two more numbers: `<read> <write> <buffer> <frame> <flags>`.
+- `<frame>`: the RFCOMM frame size to ask for (L2CAP inbound MTU and RFCOMM maximum MTU set on
+  the socket before connecting; the negotiation with the PC decides; Windows takes up to 1011
+  if GnuBox Share 1.7 asks for it). 666 is what the 9300 normally gets.
+- `<flags>` 1: once connected, allow every ACL packet type (DM1/DH1/DM3/DH3/DM5/DH5) through the
+  link manager ioctl (HCI ioctl if that fails), so the radio may use 3- and 5-slot packets.
+- `<flags>` 2: RFCOMM without credit-based flow control.
+
+GnuBox: *big frames* = `8192 4096 32768 990 1`, *no credit flow* = `8192 4096 32768 990 3`.
+
 ## Diagnostic log
 
 If the folder `C:\Logs\GnuBtCom\` exists when the driver is loaded (GnuBox 2.9.3: *Settings >

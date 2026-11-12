@@ -52,6 +52,10 @@ problem), only one copy runs (starting it again shows the window), no Python nee
   as its receive window, so the phone never has more than that in flight upstream. A workaround to test
   for the upload freeze (`notes/06-test-log.md` #21-#22). Applies to new connections.
 
+- **1.7**: logs the phone's PPP link options (ACCM: which control bytes get escaped; with
+  0xFFFFFFFF binary data needs ~12.5% more bytes on the link), and accepts Bluetooth frames up to
+  1011 B (`SO_BTH_MTU_MAX`) for GnuBox's own driver's *big frames* test.
+
 ## Run it
 
 1. Needs the **.NET 10 Desktop Runtime** (x64). If it is missing, Windows says so on start and

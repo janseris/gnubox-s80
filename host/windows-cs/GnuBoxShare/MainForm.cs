@@ -157,7 +157,7 @@ sealed class MainForm : Form
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
         UpdateStateView();
-        Log.Info("GnuBox Share 1.6 - press Start sharing, then Connect in GnuBox on the 9300.");
+        Log.Info("GnuBox Share 1.7 - press Start sharing, then Connect in GnuBox on the 9300.");
     }
 
     bool Running => _task is { IsCompleted: false };

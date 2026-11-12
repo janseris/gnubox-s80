@@ -39,7 +39,8 @@ enum TGnuboxCommandIds
 	EGnuboxCmdBtOwn,
 	EGnuboxCmdBtOwnBig,
 	EGnuboxCmdBtLog,
-	EGnuboxCmdBtOwnFrames
+	EGnuboxCmdBtOwnFrames,
+	EGnuboxCmdBtOwnNoCredit
 	};
 
 // dynamic "Device" menu items: one per paired device

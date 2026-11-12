@@ -31,9 +31,12 @@ static const TInt KBTCOMMSendBufferLength=1024;
 static const TInt KBTCOMMCircularBufferLength=4096;
 static const TInt KBTCOMMCircularBufferHighWatermark=3072;
 static const TInt KBTCOMMCircularBufferLowWatermark=2048;
-// GnuBox: optional text file "<read> <write> <buffer> [<frame>]" in bytes, e.g. "8192 4096 32768 990"
+// GnuBox: optional text file "<read> <write> <buffer> [<frame> [<flags>]]", e.g. "8192 4096 32768 990 1"
 _LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
 static const TInt KGnuBtComMaxLen=262144;
+// optional 5th number in the ini file: flags
+static const TInt KGnuBtFlagPacketTypes=1;	// allow all ACL packet types once connected
+static const TInt KGnuBtFlagNoCreditFlow=2;	// RFCOMM without credit-based flow control
 
 const TUint KCommLowUnit=0;
 const TInt KBtcommShutdownTimer=6000000; //2 secs
@@ -70,6 +73,7 @@ class CBTPortProxy;
 class CBTPortLocker;
 class CBTPortReader;
 class CBTPortWriter;
+class CGnuBtLinkTuner;
 NONSHARABLE_CLASS(CBTPort) : public CPort
 /**
 	Concrete implementation of the BTComm CSY.
@@ -150,6 +154,7 @@ NONSHARABLE_CLASS(CBTPortProxy) : public CActive
 	friend class CBTPort;
 	friend class CBTPortLocker;
 	friend class CBTPortWriter;
+	friend class CGnuBtLinkTuner;
 	friend class CBTPortReader;
 	friend class CBTTimerSimple;
 	friend class TBTPortDefaultState;
@@ -276,6 +281,8 @@ private:
 	TInt					iLowWatermark;	// start again at this
 	TInt					iConnectTries;	// RFCOMM connects that failed
 	TInt					iFrameSize;		// RFCOMM frame size to ask for (0: the stack's default)
+	TInt					iFlags;			// KGnuBtFlag*
+	CGnuBtLinkTuner*		iLinkTuner;
 
 #ifdef _DEBUG
 	TInt					iReadsPending; //for debugging calls to the reader

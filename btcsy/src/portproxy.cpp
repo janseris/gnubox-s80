@@ -21,6 +21,7 @@
 #include "btcommactive.h"
 #include <btmanclient.h>
 #include "BTSimTimer.h"
+#include "gnubtlink.h"
 
 #ifdef __FLOG_ACTIVE
 _LIT8(KLogComponent, LOG_COMPONENT_BT_COMM);
@@ -82,6 +83,7 @@ void CBTPortProxy::InitL(CBTPort *aParent,CBTPortStateFactory *aFactory)
 
 	iPortReader=CBTPortReader::NewL(this);
 	iPortWriter=CBTPortWriter::NewL(this);
+	iLinkTuner=CGnuBtLinkTuner::NewL(this);
 
 	iSockServConnector = CSockServConnector::NewL(iSockServ);
 	
@@ -114,16 +116,18 @@ void CBTPortProxy::ReadBufferSizes()
 			if (file.Read(text)==KErrNone)
 				{
 				TLex8 lex(text);
-				TInt v[4]={0,0,0,0};
+				TInt v[5]={0,0,0,0,0};
 				TInt n=0;
-				while (n<4)
+				while (n<5)
 					{
 					lex.SkipSpace();
 					if (lex.Val(v[n])!=KErrNone)
 						break;
 					n++;
 					}
-				if (n==4 && v[3]>=100 && v[3]<=32767)
+				if (n==5)
+					iFlags=v[4];
+				if (n>=4 && v[3]>=100 && v[3]<=32767)
 					iFrameSize=v[3];
 				if (n>=3 && v[0]>=128 && v[1]>=128 && v[2]>=2*v[0] &&
 					v[0]<=KGnuBtComMaxLen && v[1]<=KGnuBtComMaxLen && v[2]<=KGnuBtComMaxLen)
@@ -142,7 +146,7 @@ void CBTPortProxy::ReadBufferSizes()
 	if (iLowWatermark>iHighWatermark)
 		iLowWatermark=iHighWatermark;
 	LOG3(_L("buffers: read %d, write %d, receive %d"), iRecvBufLen, iSendBufLen, iCircBufLen)
-	LOG1(_L("RFCOMM frame size asked for: %d (0 = default)"), iFrameSize)
+	LOG2(_L("RFCOMM frame size asked for: %d (0 = default), flags %d"), iFrameSize, iFlags)
 	}
 
 CBTPortProxy::CBTPortProxy(TUint32 aPortNo) 
@@ -190,6 +194,7 @@ CBTPortProxy::~CBTPortProxy()
 	Cancel();
 	delete iPortReader;
 	delete iPortWriter;
+	delete iLinkTuner;
 	delete iPortLocker;
 	delete iSockServConnector;
 	delete iSendBuf;

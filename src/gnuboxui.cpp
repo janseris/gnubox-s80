@@ -514,7 +514,8 @@ _LIT(KGnuBtComDir, "\\System\\Libs\\");
 _LIT(KGnuBtComIni, "C:\\System\\Data\\gnubtcom.ini");
 _LIT(KGnuBtComLogDir, "C:\\Logs\\GnuBtCom\\");
 _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (bytes)
-_LIT8(KGnuBtComFrames, "8192 4096 32768 990\r\n");	// ... and the RFCOMM frame size to ask for
+_LIT8(KGnuBtComFrames, "8192 4096 32768 990 1\r\n");	// ... RFCOMM frame size, flag 1: all packet types
+_LIT8(KGnuBtComNoCredit, "8192 4096 32768 990 3\r\n");	// ... flag 2: no credit-based flow control
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 	{
@@ -529,13 +530,14 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 			return;
 			}
 		}
-	if (aDriver == EGnuboxBtOwnBig || aDriver == EGnuboxBtOwnFrames)
+	if (aDriver >= EGnuboxBtOwnBig)
 		{
 		TParsePtrC parse(KGnuBtComIni);
 		fs.MkDirAll(parse.DriveAndPath());
 		RFile file;
 		User::LeaveIfError(file.Replace(fs, KGnuBtComIni, EFileWrite));
-		TInt err = file.Write(aDriver == EGnuboxBtOwnFrames ? KGnuBtComFrames() : KGnuBtComBig());
+		TInt err = file.Write(aDriver == EGnuboxBtOwnNoCredit ? KGnuBtComNoCredit() :
+			aDriver == EGnuboxBtOwnFrames ? KGnuBtComFrames() : KGnuBtComBig());
 		file.Close();
 		User::LeaveIfError(err);
 		}
@@ -556,9 +558,13 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers"));
 		iView->Log(_L("(8 KB reads, 4 KB writes, 32 KB receive buffer). Test."));
 		break;
+	case EGnuboxBtOwnFrames:
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, asks for"));
+		iView->Log(_L("990-byte frames (not 666) and all radio packet types. Test."));
+		break;
 	default:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers and"));
-		iView->Log(_L("asks for 990-byte Bluetooth frames (instead of 666). Test."));
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), as big frames, and"));
+		iView->Log(_L("Bluetooth serial without credit flow control. Test."));
 		break;
 		}
 	iView->Log(_L("Takes effect at the next Connect."));
@@ -707,6 +713,8 @@ void CGnuboxAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane* aMenuPane)
 			iSettings.iBtDriver == EGnuboxBtOwnBig ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnFrames,
 			iSettings.iBtDriver == EGnuboxBtOwnFrames ? EEikMenuItemSymbolOn : 0);
+		aMenuPane->SetItemButtonState(EGnuboxCmdBtOwnNoCredit,
+			iSettings.iBtDriver == EGnuboxBtOwnNoCredit ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdBtLog, BtLogOn() ? EEikMenuItemSymbolOn : 0);
 		aMenuPane->SetItemButtonState(EGnuboxCmdSecNone,
 			iSettings.iSecurity == KBTDefaultServiceSecurityNone ? EEikMenuItemSymbolOn : 0);
@@ -835,6 +843,9 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 	case EGnuboxCmdBtOwnFrames:
 		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnFrames));
 		break;
+	case EGnuboxCmdBtOwnNoCredit:
+		TRAP(err, CmdSetBtDriverL(EGnuboxBtOwnNoCredit));
+		break;
 	case EGnuboxCmdBtLog:
 		TRAP(err, CmdToggleBtLogL());
 		break;
@@ -871,7 +882,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.5 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.9.6 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

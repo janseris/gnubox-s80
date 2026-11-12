@@ -49,6 +49,9 @@ sealed unsafe class BluetoothTransport : ITransport
     [DllImport("ws2_32.dll", SetLastError = true)] static extern int getsockopt(IntPtr s, int level, int optname, byte* optval, ref int optlen);
     const int SOL_RFCOMM = 3;                                  // ws2bth.h: SOL_RFCOMM = BTHPROTO_RFCOMM
     const int SO_BTH_MTU = unchecked((int)0x80000007);         // negotiated RFCOMM frame size once connected
+    const int SO_BTH_MTU_MAX = unchecked((int)0x80000008);     // the largest frame size this side accepts
+    const uint RFCOMM_MAX_MTU = 0x3F3;                         // 1011, ws2bth.h
+    [DllImport("ws2_32.dll", SetLastError = true)] static extern int setsockopt(IntPtr s, int level, int optname, byte* optval, int optlen);
 
     IntPtr _listen = InvalidSocket, _client = InvalidSocket;
     readonly List<IntPtr> _mem = new();                  // unmanaged memory the SDP record points into
@@ -95,6 +98,10 @@ sealed unsafe class BluetoothTransport : ITransport
         var addr = (SOCKADDR_BTH*)sa;
         addr->addressFamily = AF_BTH;
         addr->port = BT_PORT_ANY;
+        // 1.7: accept frames up to 1011 B if the phone asks for them (GnuBox's own driver, "big frames")
+        uint mtuMax = RFCOMM_MAX_MTU;
+        if (setsockopt(_listen, SOL_RFCOMM, SO_BTH_MTU_MAX, (byte*)&mtuMax, 4) != 0)
+            Log.Detail($"Bluetooth: largest frame size not set (error {WSAGetLastError()})");
         if (bind(_listen, sa, saSize) != 0) throw new IOException($"Bluetooth bind: error {WSAGetLastError()}");
         if (listen(_listen, 1) != 0) throw new IOException($"Bluetooth listen: error {WSAGetLastError()}");
         int len = saSize;

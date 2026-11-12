@@ -478,3 +478,8 @@ NetTest Quick 30.0 / 30.6 / 31.1 / 30.9 / 30.8 / 31.0 / 28.3 / 29.4 kB/s (runs 1
 35.5 kB/s average in seconds with data. **Frame size still 666** on the PC side, so the request for 990-byte
 frames didn't take (the phone's SetOpt results are only in the driver log, not taken this time). Browser
 download also ~30 kB/s.
+Next, all in one go (GnuBox 2.9.6 + GnuBox Share 1.7): the driver log of a *big frames* connect (did the
+phone accept the frame size request?), GnuBox Share logs the phone's LCP options (is ACCM 0, or does all
+binary data carry ~12.5% escapes?) and accepts frames up to 1011; *big frames* now also asks the link
+manager for all ACL packet types (3/5-slot packets); *no credit flow* turns RFCOMM credit-based flow
+control off.
