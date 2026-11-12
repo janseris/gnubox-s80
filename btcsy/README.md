@@ -9,6 +9,12 @@ of connections (`notes/06-test-log.md`), well under what the radio can carry. Th
 BTCOMM itself: one socket read of at most 1 KB at a time, a 4 KB receive buffer that stops reading
 the socket at 3 KB, 1 KB writes. The phone's BTCOMM is in ROM and can't be changed; this copy can.
 
+**Result (Nov 2026): no faster.** With 8x the buffers, all ACL packet types, bigger frames asked for,
+bigger socket buffers or RFCOMM without credit flow control, NetTest stays at 28-31 kB/s, the same as the
+phone's BTCOMM. The limit is below RFCOMM in the phone; see `notes/07-bluetooth-speed.md`. Keep GnuBox on
+*Bluetooth driver: the phone's*. Known fault: sometimes (seen with 990-byte frames + packet types, and with
+no credit flow + the log) the phone's PPP never accepts what arrives and the connect hangs at stage 3500.
+
 The port is `GNUBTCOM::0`. It finds its PC exactly like `BTCOMM::0`: the Bluetooth registry's
 default device for port 0 (what GnuBox writes when you choose the device), then an SDP query for
 the service, then an RFCOMM connection.

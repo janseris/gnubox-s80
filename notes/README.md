@@ -15,4 +15,5 @@ A running record of what we have found out. Each fact is marked:
 | [04-build.md](04-build.md) | Building on Linux: toolchain, SDK quirks, gotchas hit so far |
 | [05-open-questions.md](05-open-questions.md) | Unknowns and what to try next |
 | [06-test-log.md](06-test-log.md) | Results of real tests (template plus entries) |
+| [07-bluetooth-speed.md](07-bluetooth-speed.md) | What limits Bluetooth to ~35 kB/s: everything measured and ruled out [device] |
 | [sources.md](sources.md) | Links and source files used |

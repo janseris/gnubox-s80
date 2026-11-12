@@ -32,9 +32,10 @@ browser loads pages over HTTP and HTTPS, without asking for an access point.
 
 Download the ready-made package: [`release/gnubox-2.10.sis`](release/gnubox-2.10.sis)
 
-2.9 adds a test: *Settings > Bluetooth driver: GnuBox's* uses GnuBox's own copy of Symbian's
-Bluetooth serial driver ([`btcsy/`](btcsy/README.md), GNUBTCOM.CSY, EPL), whose buffers can be
-made bigger, to find out whether the phone's driver is what holds Bluetooth at ~35 kB/s.
+2.9-2.10 add test settings: *Settings > Bluetooth driver: GnuBox's...* use GnuBox's own copy of
+Symbian's Bluetooth serial driver ([`btcsy/`](btcsy/README.md), GNUBTCOM.CSY, EPL) with bigger buffers
+and other link changes. Result: no faster; the ~35 kB/s limit is below RFCOMM in the phone
+([`notes/07-bluetooth-speed.md`](notes/07-bluetooth-speed.md)). Keep *Bluetooth driver: the phone's*.
 
 ## How it works
 
