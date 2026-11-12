@@ -472,3 +472,9 @@ suspect from #16 is ruled out. What's left below TCP: RFCOMM frames of 666 B (~5
 each needing credit), PPP/HDLC on the phone's CPU, the radio link. GnuBox 2.9.5 adds *big frames*: the
 driver asks for 990-byte RFCOMM frames (L2CAP inbound MTU and RFCOMM max MTU set before connecting);
 GnuBox Share's "frame size" line shows what was agreed.
+
+### #23, seventh run: 2.9.5 *big frames* (2026-11-12 01:17-01:21) [device: user]
+NetTest Quick 30.0 / 30.6 / 31.1 / 30.9 / 30.8 / 31.0 / 28.3 / 29.4 kB/s (runs 1-8), 0 errors; GnuBox Share
+35.5 kB/s average in seconds with data. **Frame size still 666** on the PC side, so the request for 990-byte
+frames didn't take (the phone's SetOpt results are only in the driver log, not taken this time). Browser
+download also ~30 kB/s.
