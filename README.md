@@ -30,7 +30,7 @@ nearby, and the phone also reaches the PC's own servers (`192.168.137.1`).
 **Status:** working on a real Nokia 9300 with an Android phone running BlueDUN++. The
 browser loads pages over HTTP and HTTPS, without asking for an access point.
 
-Download the ready-made package: [`release/gnubox-2.9.9.sis`](release/gnubox-2.9.9.sis)
+Download the ready-made package: [`release/gnubox-2.10.sis`](release/gnubox-2.10.sis)
 
 2.9 adds a test: *Settings > Bluetooth driver: GnuBox's* uses GnuBox's own copy of Symbian's
 Bluetooth serial driver ([`btcsy/`](btcsy/README.md), GNUBTCOM.CSY, EPL), whose buffers can be

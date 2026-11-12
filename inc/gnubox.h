@@ -95,7 +95,7 @@ enum TGnuboxBtDriver
 	EGnuboxBtOwn = 1,		// GNUBTCOM.CSY (port of BTCOMM), Symbian's buffer sizes
 	EGnuboxBtOwnBig = 2,	// GNUBTCOM.CSY with bigger buffers (gnubtcom.ini)
 	EGnuboxBtOwnFrames = 3,	// ... and all radio packet types (3/5-slot)
-	EGnuboxBtOwnNoCredit = 4	// ... and 32 KB socket buffers (was: no credit flow, then 990-byte frames)
+	EGnuboxBtOwnNoCredit = 4	// ... and RFCOMM without credit-based flow control
 	};
 
 class TGnuboxSettings

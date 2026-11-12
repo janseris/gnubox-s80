@@ -517,7 +517,10 @@ _LIT8(KGnuBtComBig, "8192 4096 32768\r\n");	// read, write, receive buffer (byte
 // 2.9.7 with both of these: the phone's PPP got nothing usable (LCP restarted every second); one at a time:
 _LIT8(KGnuBtComFrames, "8192 4096 32768 0 1\r\n");	// ... flag 1: all ACL packet types
 // 990-byte frames: refused below the driver (frame stays 666) and broke the link together with packet types
-_LIT8(KGnuBtComNoCredit, "8192 4096 32768 0 4\r\n");	// ... flag 4: 32 KB socket buffers (more RFCOMM credits?)
+// 32 KB socket buffers (flag 4): no gain, the phone still grants at most 7 RFCOMM credits
+// the phone's RFCOMM gives at most 7 credits (7 x 666 B in flight) with credit-based flow control;
+// without it (RFCOMM 1.0 flow control) its buffer is 50 frames
+_LIT8(KGnuBtComNoCredit, "8192 4096 32768 0 2\r\n");	// ... flag 2: no credit-based flow control
 
 void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 	{
@@ -565,8 +568,8 @@ void CGnuboxAppUi::CmdSetBtDriverL(TInt aDriver)
 		iView->Log(_L("all radio packet types (3- and 5-slot). Test."));
 		break;
 	default:
-		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers and 32 KB"));
-		iView->Log(_L("Bluetooth socket buffers. Test."));
+		iView->Log(_L("Bluetooth driver: GnuBox's (GNUBTCOM), big buffers, Bluetooth"));
+		iView->Log(_L("serial without credit flow control (no 7-frame limit). Test."));
 		break;
 		}
 	iView->Log(_L("Takes effect at the next Connect."));
@@ -884,7 +887,7 @@ void CGnuboxAppUi::HandleCommandL(TInt aCommand)
 		TRAP(err, iView->ClearL());
 		break;
 	case EGnuboxCmdAbout:
-		iView->Log(_L("GnuBox for Series 80 2.9.9 - GPL. Based on gnubox by Mal Minhas"));
+		iView->Log(_L("GnuBox for Series 80 2.10 - GPL. Based on gnubox by Mal Minhas"));
 		iView->Log(_L("and Mika Raento."));
 		break;
 	case EGnuboxCmdDefaultAsk:

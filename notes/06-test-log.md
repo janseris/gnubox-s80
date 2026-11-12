@@ -519,3 +519,17 @@ packet types did). Frame size still 666. NetTest Quick 30.1 / 30.9 / 30.9 / 31.1
 ### #23, 2.9.9 *big socket buffers* (32 KB KSORecvBuf/KSOSendBuf), log off (2026-11-12 02:14-02:18) [device: user]
 NetTest Quick 29.0 / 30.8 / 30.9 / 30.4 / 30.3 / 30.0 / 28.3 / 29.3 kB/s, 0 errors; GnuBox Share 35.6 kB/s.
 No gain (whether the buffers took effect / changed the credits: the log run shows).
+
+### #23, **the cause of the ~35 kB/s ceiling**: RFCOMM credits (2026-11-12 12:52-12:54, 2.9.9 with the log) [device: user]
+Driver log once a second during NetTest: `RFCOMM credits: receive 0-7, transmit 30-32`, data waiting for PPP
+mostly < 100 B (PPP keeps up). The phone grants the PC **at most 7 credits = 7 frames x 666 B = 4.6 KB in
+flight**, while Windows grants the phone ~32. Symbian's RFCOMM source (`btstack/rfcomm`, EPL) says why:
+`KRfcommSAPCBFCBufferMultiple = 7` - with credit-based flow control the receive buffer is 7 x MTU and the
+credits are the free space / MTU; `KRfcommCreditsLowWaterMark = 3`: it tops the PC up when only 3 are left.
+So the PC can send ~4-7 frames per credit round trip; 35 kB/s / 4.6 KB = ~130 ms per round, which is the
+radio + phone turnaround. That's in the phone's ROM Bluetooth stack (rfcomm.prt), not BTCOMM - which is why
+BTCOMM's buffers (8x), socket buffers, packet types and the frame request (stays 666, L2CAP) changed nothing.
+The only door left in RFCOMM: **no credit-based flow control** (RFCOMM 1.0 flow control): then the receive
+buffer is `KRfcommSAPBufferMultiple = 50` frames and flow stops by MSC/FCoff instead of credits. Set with
+`KRFCOMMFlowTypeCBFC` = false before connecting (the mux is then created without offering CBFC). The earlier
+*no credit flow* try (with frames + packet types) never reached the PC; GnuBox 2.10 tries it alone.
