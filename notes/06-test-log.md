@@ -510,3 +510,8 @@ Connects and works (so 990-byte frames were what broke the 2.9.7 link). NetTest 
 the speed is not set by the packet types the phone allows.
 Next (2.9.9): *big socket buffers* (32 KB KSORecvBuf/KSOSendBuf on the RFCOMM socket - does the phone grant
 more RFCOMM credits?), and with the log on, the RFCOMM receive/transmit credits once a second.
+
+### #23, 2.9.8 *big frames only* (2026-11-12 02:06-02:10) [device: user]
+Connected and worked this time (so frames alone don't break the link; only the 2.9.7 combination with
+packet types did). Frame size still 666. NetTest Quick 30.1 / 30.9 / 30.9 / 31.1 / 31.2 / 31.2 / 29.5 /
+28.6 kB/s, 0 errors; GnuBox Share 35.8 kB/s in seconds with data. No gain (the frame size never changed).
