@@ -30,7 +30,10 @@ nearby, and the phone also reaches the PC's own servers (`192.168.137.1`).
 **Status:** working on a real Nokia 9300 with an Android phone running BlueDUN++. The
 browser loads pages over HTTP and HTTPS, without asking for an access point.
 
-Download the ready-made package: [`release/gnubox-2.10.sis`](release/gnubox-2.10.sis)
+**Download:** the [latest release](https://github.com/janseris/gnubox-s80/releases/latest)
+(`gnubox-<version>.sis`, plus GnuBox Share for Windows and NetTest), or
+[`release/gnubox-2.11.sis`](release/gnubox-2.11.sis) here. Every version since 2.11 gets a release by
+itself (`.github/workflows/release.yml`, when `sis/gnubox.pkg` has a new version).
 
 2.9-2.10 tested GnuBox's own copy of Symbian's Bluetooth serial driver ([`btcsy/`](btcsy/README.md),
 GNUBTCOM.CSY, EPL) with bigger buffers and other link changes: no faster, the ~35 kB/s limit is below

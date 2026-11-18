@@ -1,0 +1,95 @@
+# Publishes a GitHub Release for each new GnuBox version: when a push to main brings a version
+# (sis/gnubox.pkg, e.g. 2,11,0 -> 2.11) that has no release yet, it creates v<version> with
+# release/gnubox-<version>.sis, plus GnuBox Share for Windows (release/GnuBoxShare.exe) and the newest
+# NetTest (nettest/release/nettest-*.sis). The notes are the commit titles since the previous release.
+# Nothing to do for a version already released. "Run workflow" by hand can also release an older
+# version whose .sis is in release/ (e.g. 2.8).
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - sis/gnubox.pkg
+      - release/**
+      - .github/workflows/release.yml
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (empty: the one in sis/gnubox.pkg)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version
+        id: v
+        run: |
+          ver="${{ github.event.inputs.version }}"
+          if [ -z "$ver" ]; then
+            # #{"GnuBox"},(0x097764f0),2,11,0 -> 2.11 ; 2,9,5 -> 2.9.5
+            ver=$(sed -n 's/^#{"GnuBox"},([^)]*),\([0-9]*\),\([0-9]*\),\([0-9]*\).*/\1.\2.\3/p' sis/gnubox.pkg | sed 's/\.0$//')
+          fi
+          test -n "$ver"
+          test -f "release/gnubox-$ver.sis" || { echo "release/gnubox-$ver.sis is missing"; exit 1; }
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          if gh release view "v$ver" >/dev/null 2>&1; then echo "exists=1" >> "$GITHUB_OUTPUT"; else echo "exists=0" >> "$GITHUB_OUTPUT"; fi
+          prev=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')
+          echo "previous=$prev" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Notes
+        if: steps.v.outputs.exists == '0'
+        run: |
+          ver="${{ steps.v.outputs.version }}"
+          prev="${{ steps.v.outputs.previous }}"
+          {
+            echo "GnuBox for Series 80 $ver: internet for the Nokia 9300 / 9300i / 9500 (Symbian 7.0s) over Bluetooth, from an Android phone (BlueDUN++), a Windows PC (GnuBox Share) or Linux (pppd)."
+            echo
+            echo "**Install:** download \`gnubox-$ver.sis\` below, copy it to the phone (or open it in the phone's browser) and install it. On Windows run \`GnuBoxShare.exe\` (needs the .NET 10 Desktop Runtime). How to set it up: the README."
+            echo
+            if [ -z "${{ github.event.inputs.version }}" ]; then
+              echo "Also attached: \`GnuBoxShare.exe\` (the Windows host) and NetTest (\`nettest-*.sis\`, the speed test app) as they are in the repository at this release."
+              echo
+            fi
+            if [ -n "$prev" ] && git rev-parse -q --verify "refs/tags/$prev" >/dev/null; then
+              echo "## Changes since $prev"
+              echo
+              git log --no-merges --format='- %s' "$prev..$GITHUB_SHA"
+            else
+              echo "## Recent changes"
+              echo
+              git log --no-merges --format='- %s' -15 "$GITHUB_SHA"
+            fi
+          } > notes.md
+          cat notes.md
+
+      - name: Release
+        if: steps.v.outputs.exists == '0'
+        run: |
+          ver="${{ steps.v.outputs.version }}"
+          files="release/gnubox-$ver.sis"
+          latest=--latest
+          pkg=$(sed -n 's/^#{"GnuBox"},([^)]*),\([0-9]*\),\([0-9]*\),\([0-9]*\).*/\1.\2.\3/p' sis/gnubox.pkg | sed 's/\.0$//')
+          if [ "$ver" = "$pkg" ]; then
+            # the current version: with today's GnuBox Share and NetTest
+            [ -f release/GnuBoxShare.exe ] && files="$files release/GnuBoxShare.exe"
+            nt=$(ls nettest/release/nettest-*.sis 2>/dev/null | sort -V | tail -1)
+            [ -n "$nt" ] && files="$files $nt"
+          else
+            # an older version released by hand: only its .sis, and it must not become "latest"
+            latest=--latest=false
+          fi
+          gh release create "v$ver" $files --title "GnuBox $ver" --notes-file notes.md --target "$GITHUB_SHA" $latest
+        env:
+          GH_TOKEN: ${{ github.token }}
